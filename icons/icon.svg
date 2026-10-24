@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4FA3FF"/>
+      <stop offset="1" stop-color="#0058D6"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEF4FF"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4F8FF"/>
+      <stop offset="1" stop-color="#DCE8FF"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D5E4FF"/>
+      <stop offset="1" stop-color="#B9D1FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g transform="translate(512 548)">
+    <ellipse cx="0" cy="268" rx="300" ry="34" fill="#003C99" opacity=".28"/>
+    <path d="M0 -262 L282 -126 L0 10 L-282 -126 Z" fill="url(#top)"/>
+    <path d="M-282 -126 L0 10 L0 282 L-282 146 Z" fill="url(#left)"/>
+    <path d="M282 -126 L0 10 L0 282 L282 146 Z" fill="url(#right)"/>
+    <path d="M-141 -194 L141 -58 L141 32 L96 10 L96 -36 L-186 -172 Z" fill="#9DBFFF" opacity=".55"/>
+    <!-- label on the front face -->
+    <path d="M-226 -40 L-56 42 L-56 166 L-226 84 Z" fill="#0A6CFF"/>
+    <path d="M-196 -2 L-86 51 M-196 38 L-110 80 M-196 78 L-140 105" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+  </g>
+</svg>
