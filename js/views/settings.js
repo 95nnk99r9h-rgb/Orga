@@ -8,8 +8,9 @@ import {
   loadDemo, setMeta,
 } from '../store.js';
 import { dateLabel, unitsLabel } from '../format.js';
-import { navigate } from '../router.js';
+import { navigate, refresh } from '../router.js';
 import { canInstall, install } from '../install.js';
+import { THEMES, getTheme, setTheme } from '../theme.js';
 
 const row = ({ iconName, color, title, detail = '', href = null, action = null, cls = '' }) => {
   const inner = html`
@@ -77,6 +78,12 @@ export const moreView = {
             </div>`
           : ''}
 
+        <h3 class="section-head">Darstellung</h3>
+        <div class="seg theme-seg" role="group" aria-label="Darstellung">
+          ${THEMES.map(([key, label]) => html`<button type="button" data-theme-set="${key}" aria-pressed="${String(getTheme() === key)}">${label}</button>`)}
+        </div>
+        <p class="section-foot">„Automatisch“ folgt der Einstellung deines iPhones.</p>
+
         <h3 class="section-head">Anleitung</h3>
         <div class="list">
           ${row({ iconName: 'book', color: 'green', title: 'Das Fundort-System', href: '#/system' })}
@@ -98,6 +105,11 @@ export const moreView = {
   },
   mount(root) {
     root.addEventListener('click', async (e) => {
+      const theme = e.target.closest('[data-theme-set]')?.dataset.themeSet;
+      if (theme) {
+        setTheme(theme);
+        return refresh();
+      }
       const action = e.target.closest('[data-action]')?.dataset.action;
       if (action === 'install') install();
       if (action === 'export') doExport();

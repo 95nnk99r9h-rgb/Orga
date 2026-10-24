@@ -1,10 +1,10 @@
-// Storage building blocks – drawn shelves for "Lager", rows of number chips
-// for "Liste" – and the detail pages for a shelf, a level and a zone.
+// Storage building blocks – shelf and zone cards with rows of number chips
+// for the start page – and the detail pages for a shelf, a level and a zone.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs, colorOf } from '../components.js';
-import { state, shelfById, zoneById, boxesAt, boxesInZone, unplacedBoxes, awayBoxes } from '../store.js';
-import { pad, plural, unitsLabel, unitName, boxTitle } from '../format.js';
+import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs } from '../components.js';
+import { state, shelfById, zoneById, boxesAt, boxesInZone } from '../store.js';
+import { plural, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { newBox, openPickBoxSheet } from './box.js';
 import { presetLabels } from './labels.js';
@@ -15,7 +15,7 @@ function levelRow(shelf, level) {
   return html`
     <div class="level-row" data-href="/regal/${shelf.id}/${level}">
       <a class="level-num" href="#/regal/${shelf.id}/${level}" aria-label="Boden ${level}">${level}</a>
-      <span class="level-chips">${chips(boxesAt(shelf.id, level))}</span>
+      <span class="level-chips" data-reorder>${chips(boxesAt(shelf.id, level))}</span>
       ${icon('chevron', 'chev')}
     </div>`;
 }
@@ -48,65 +48,6 @@ export function shelfCard(shelf) {
 }
 
 export function zoneCard() {
-  if (!state.zones.length) return '';
-  return html`
-    <section class="card shelf-card">
-      ${zonesHead()}
-      ${state.zones.map(
-        (z) => html`
-          <div class="level-row zone-row" data-href="/platz/${z.id}">
-            <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}">${z.id}</a>
-            <span class="zone-main">
-              <span class="zone-name">${z.name || `Stellplatz ${z.id}`}</span>
-              <span class="level-chips">${chips(boxesInZone(z.id))}</span>
-            </span>
-            ${icon('chevron', 'chev')}
-          </div>`,
-      )}
-    </section>`;
-}
-
-// ---------------------------------------------------------------------------
-// Drawn shelves: compartments from top to bottom with the entries standing on
-// each board; the board carries the level address like the printed label.
-
-function crate(box) {
-  const isItem = box.kind === 'item';
-  return html`
-    <a class="crate ${isItem ? 'item' : ''}" href="#/kiste/${box.number}" ${catAttrs(colorOf(box))} aria-label="${unitName(box)}: ${boxTitle(box)}">
-      ${isItem ? '' : html`<span class="crate-lid"></span>`}
-      <span class="crate-label">${pad(box.number)}</span>
-      <span class="crate-name">${isItem ? boxTitle(box) : box.items.join(', ') || 'leer'}</span>
-    </a>`;
-}
-
-export function rackCard(shelf) {
-  return html`
-    <section class="card rack">
-      ${shelfHead(shelf)}
-      <div class="rack-frame">
-        ${Array.from({ length: shelf.levels }, (_, i) => {
-          const level = i + 1;
-          const boxes = boxesAt(shelf.id, level);
-          return html`
-            <div class="rack-level" data-href="/regal/${shelf.id}/${level}">
-              ${boxes.length ? boxes.map(crate) : html`<span class="rack-empty">leer</span>`}
-            </div>
-            <div class="rack-board"><a class="rack-tag" href="#/regal/${shelf.id}/${level}" aria-label="Boden ${shelf.id}${level}">${shelf.id}${level}</a></div>`;
-        })}
-      </div>
-    </section>`;
-}
-
-const floor = ({ href = null, code = '', name, boxes, empty = 'frei' }) => html`
-  <div class="floor ${href ? '' : 'outside'}" ${href ? html`data-href="${href}"` : ''}>
-    <div class="floor-row">${boxes.length ? boxes.map(crate) : html`<span class="rack-empty">${empty}</span>`}</div>
-    ${href
-      ? html`<a class="floor-tag" href="#${href}">${code ? html`<b>${code}</b>` : ''}${name}</a>`
-      : html`<span class="floor-tag">${name}</span>`}
-  </div>`;
-
-export function zoneRack() {
   if (!state.zones.length) {
     return html`
       <a class="card notice spaced-bottom" href="#/mehr/regale">
@@ -119,32 +60,19 @@ export function zoneRack() {
       </a>`;
   }
   return html`
-    <section class="card rack">
+    <section class="card shelf-card">
       ${zonesHead()}
-      <div class="floors">
-        ${state.zones.map((z) => floor({ href: `/platz/${z.id}`, code: z.id, name: z.name || `Stellplatz ${z.id}`, boxes: boxesInZone(z.id) }))}
-      </div>
-    </section>`;
-}
-
-// Entries without a place in the cellar, drawn the same way.
-export function outsideRack() {
-  const unplaced = unplacedBoxes();
-  const away = awayBoxes();
-  if (!unplaced.length && !away.length) return '';
-  return html`
-    <section class="card rack">
-      <div class="shelf-head static">
-        <span class="zone-code muted">${icon('tray')}</span>
-        <span class="cell-text">
-          <span class="cell-title">Außerhalb</span>
-          <span class="cell-sub">Ohne festen Platz oder entnommen</span>
-        </span>
-      </div>
-      <div class="floors">
-        ${unplaced.length ? floor({ name: 'Ohne festen Platz', boxes: unplaced }) : ''}
-        ${away.length ? floor({ name: 'Nicht im Keller', boxes: away }) : ''}
-      </div>
+      ${state.zones.map(
+        (z) => html`
+          <div class="level-row zone-row" data-href="/platz/${z.id}">
+            <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}">${z.id}</a>
+            <span class="zone-main">
+              <span class="zone-name">${z.name || `Stellplatz ${z.id}`}</span>
+              <span class="level-chips" data-reorder>${chips(boxesInZone(z.id))}</span>
+            </span>
+            ${icon('chevron', 'chev')}
+          </div>`,
+      )}
     </section>`;
 }
 

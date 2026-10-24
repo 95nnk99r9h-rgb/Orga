@@ -39,7 +39,7 @@ export const state = {
   shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
   zones: [], // { id: 'S1', name: 'Unter der Treppe' } – places outside the shelves
   categories: [], // { id, name, color }
-  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, items[], notes, photos[], createdAt, updatedAt }
+  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, order, items[], notes, photos[], createdAt, updatedAt }
   meta: freshMeta(),
 };
 
@@ -135,6 +135,8 @@ export const uid = () =>
 // Queries
 
 const byNumber = (a, b) => a.number - b.number;
+// Within one place, a hand-set order wins; entries without one follow by number.
+const byOrder = (a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || byNumber(a, b);
 
 export const boxById = (id) => state.boxes.find((b) => b.id === id);
 export const boxByNumber = (n) => state.boxes.find((b) => b.number === n);
@@ -146,9 +148,9 @@ export const sortedBoxes = () => [...state.boxes].sort(byNumber);
 export const boxesAt = (shelf, level = null) =>
   state.boxes
     .filter((b) => b.location?.shelf === shelf && (level == null || b.location.level === level))
-    .sort(byNumber);
+    .sort(level == null ? byNumber : byOrder);
 
-export const boxesInZone = (id) => state.boxes.filter((b) => b.location?.zone === id).sort(byNumber);
+export const boxesInZone = (id) => state.boxes.filter((b) => b.location?.zone === id).sort(byOrder);
 export const boxesOfKind = (kind) => state.boxes.filter((b) => b.kind === kind).sort(byNumber);
 export const unplacedBoxes = () => state.boxes.filter((b) => !b.location).sort(byNumber);
 export const awayBoxes = () => state.boxes.filter((b) => b.location?.away).sort(byNumber);
@@ -250,6 +252,8 @@ export function updateBox(id, patch) {
   const box = boxById(id);
   if (!box) throw new Error('Eintrag nicht gefunden.');
   if ('number' in patch) assertNumber(patch.number, id);
+  // Moved somewhere else: line up at the end there.
+  if ('location' in patch && locKey(patch.location) !== locKey(box.location)) patch = { ...patch, order: null };
   Object.assign(box, patch, { updatedAt: Date.now() });
   writeBox(box);
   emit();
@@ -257,6 +261,19 @@ export function updateBox(id, patch) {
 }
 
 export const moveBox = (id, location) => updateBox(id, { location });
+
+// Hand-set order of the entries on one level or zone (ids in their new order).
+// Not a content change, so updatedAt stays as it is.
+export function reorderBoxes(ids) {
+  ids.forEach((id, i) => {
+    const box = boxById(id);
+    if (box && box.order !== i) {
+      box.order = i;
+      writeBox(box);
+    }
+  });
+  emit();
+}
 
 export function deleteBox(id) {
   const box = boxById(id);

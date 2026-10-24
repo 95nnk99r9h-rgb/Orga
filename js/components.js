@@ -31,7 +31,7 @@ export const badge = (box, cls = '') =>
   html`<span class="badge ${box.kind === 'item' ? 'item' : ''} ${cls}" ${catAttrs(colorOf(box))}>${pad(box.number)}</span>`;
 
 export const boxChip = (box) =>
-  html`<a class="box-chip ${box.kind === 'item' ? 'item' : ''}" href="#/kiste/${box.number}" ${catAttrs(colorOf(box))} title="${boxTitle(box)}">${pad(box.number)}</a>`;
+  html`<a class="box-chip ${box.kind === 'item' ? 'item' : ''}" href="#/kiste/${box.number}" data-id="${box.id}" draggable="false" ${catAttrs(colorOf(box))} title="${boxTitle(box)}">${pad(box.number)}</a>`;
 
 // Square showing where something is: "B3" for a shelf level, "S1" for a zone.
 export function placeCode(loc, cls = '') {
