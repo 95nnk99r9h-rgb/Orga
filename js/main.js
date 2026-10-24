@@ -5,6 +5,7 @@ import { html, raw, icon, toast } from './ui.js';
 import { hydratePhotos } from './components.js';
 import { setRenderer, navigate, switchTab, back, currentPath, depth } from './router.js';
 import home from './views/home.js';
+import list from './views/list.js';
 import { shelfView, levelView, zoneView } from './views/shelves.js';
 import { boxView, newBox } from './views/box.js';
 import scan from './views/scan.js';
@@ -16,6 +17,7 @@ import welcome from './views/welcome.js';
 const ROUTES = [
   ['/', home],
   ['/regale', home], // old address of the storage overview
+  ['/liste', list],
   ['/regal/:shelf', shelfView],
   ['/regal/:shelf/:level', levelView],
   ['/platz/:zone', zoneView],
@@ -35,6 +37,7 @@ const ROUTES = [
 
 const TABS = [
   { path: '/', id: 'home', label: 'Lager', icon: 'shelves' },
+  { path: '/liste', id: 'list', label: 'Liste', icon: 'list' },
   { path: '/scan', id: 'scan', label: 'Scannen', icon: 'scan' },
   { path: '/etiketten', id: 'labels', label: 'Etiketten', icon: 'tag' },
   { path: '/mehr', id: 'more', label: 'Mehr', icon: 'more' },
