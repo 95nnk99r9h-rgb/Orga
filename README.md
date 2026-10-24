@@ -48,9 +48,10 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 - **Lagerorte** – Regale hinzufügen und entfernen, Böden pro Regal einzeln einstellen, Stellplätze anlegen (mit Vorschlägen wie „Unter der Treppe“, „Garage“).
 - **Umlagern** – per Raster (Regal × Boden, kürzere Regale mit Lücken) plus Stellplätze, per Scan oder vom Platz aus („Hierher stellen“). Zusätzlich „Ohne festen Platz“ und „Nicht im Keller“ (entnommen).
 - **Kategorien mit Farben** – z. B. Weihnachten = rot, Kleidung = blau. Die Farbe erscheint auf dem Etikett und in der App.
+- **Gemeinsam nutzen** – optionaler Online-Abgleich über Firebase: Ein Handy legt einen „Haushalt“ an, weitere treten per Code oder QR-Code bei. Änderungen erscheinen in Sekunden auf allen Geräten, ohne Netz im Keller wird alles gemerkt und später abgeglichen. Einrichtung: **[docs/ONLINE.md](docs/ONLINE.md)**.
 - **Backup** – Export/Import als Datei (inkl. Fotos), z. B. in iCloud Drive.
 - **Darstellung** – unter *Mehr → Darstellung*: Automatisch (wie das iPhone), Hell oder Dunkel.
-- **Offline-fähig**, Hell-/Dunkelmodus, keine Anmeldung, keine Cloud – alle Daten bleiben auf dem Gerät.
+- **Offline-fähig**, Hell-/Dunkelmodus, keine Anmeldung. Ohne Online-Abgleich bleiben alle Daten auf dem Gerät.
 
 ## Auf dem iPhone installieren
 
@@ -74,7 +75,7 @@ Die Anleitung findest du auch jederzeit unter *Mehr → Als App installieren*. A
 ## Gut zu wissen
 
 - **Erst installieren, dann erfassen.** Safari und die installierte App speichern ihre Daten auf dem iPhone getrennt. Wer schon in Safari erfasst hat, nimmt die Daten per Backup mit (*Mehr → Backup erstellen*, in der App *Backup wiederherstellen*).
-- **Daten liegen nur auf dem Gerät.** Es gibt (noch) keine Synchronisierung. Für mehrere Personen: auf einem Gerät pflegen und das Backup teilen, oder ein „Keller-Handy“ bestimmen. Regelmäßig *Mehr → Backup erstellen* – die App erinnert daran, wenn das letzte Backup älter als 30 Tage ist.
+- **Wo die Daten liegen:** auf jedem Gerät in der Browser-Datenbank (IndexedDB). Mit eingerichtetem Online-Abgleich zusätzlich im gemeinsamen Haushalt in Firebase (Standort wählbar, z. B. Frankfurt) – Anleitung in [docs/ONLINE.md](docs/ONLINE.md). Regelmäßig *Mehr → Backup erstellen* – die App erinnert daran, wenn das letzte Backup älter als 30 Tage ist.
 - **Mit der App scannen, nicht mit der Kamera-App.** Auf dem iPhone haben die installierte App und Safari getrennte Speicher. Scannt man ein Etikett mit der normalen Kamera, öffnet sich Safari ohne deine Daten. Die QR-Codes funktionieren trotzdem dauerhaft, auch wenn die App einmal umzieht – der Scanner liest nur Nummer, Boden bzw. Stellplatz aus.
 - **Drucken:** Im Druckdialog „Tatsächliche Größe“ / 100 % wählen und Seitenränder/Skalierung ausschalten. Am bequemsten druckt man vom Computer oder aus Safari.
 - **Etiketten haltbar machen:** auf normales Papier drucken und mit breitem Klebeband oder Klebefolie überkleben, in selbstklebende Etikettentaschen stecken oder direkt auf Etikettenbögen drucken. Für Einzelstücke eignen sich kleine Etiketten als Anhänger (lochen, mit Kabelbinder befestigen).
@@ -104,12 +105,15 @@ js/scan-worker.js     QR-Erkennung im Hintergrund-Thread
 js/install.js         „Zum Home-Bildschirm“: Anleitung für iOS, Installationsdialog für Android
 js/reorder.js         Nummern-Chips durch Halten und Ziehen umsortieren
 js/haptics.js         kurzes haptisches Feedback (Android: Vibration, iOS 18+: System-Haptik)
+js/sync.js            Online-Abgleich mit einem Haushalt in Firebase Firestore (lokal zuerst, offline-fest)
+js/firebase-config.js Zugangsdaten des Firebase-Projekts (leer = Abgleich aus)
+firestore.rules       Sicherheitsregeln: nur Mitglieder eines Haushalts lesen und schreiben
 js/theme.js           Darstellung: automatisch, hell oder dunkel
 js/views/*.js         Seiten: Lager (Start), Regal/Boden/Stellplatz, Kiste, Scannen, Etiketten, Mehr, System, Willkommen;
                       browse.js ist der Seitenrahmen mit Suche, Verlauf und Filtern
 icons/                App-Symbole und iOS-Startbildschirme (icons/splash)
-vendor/               qrcode-generator (MIT), jsQR (Apache 2.0)
-docs/                 Keller-Handbuch und Vorschaubild
+vendor/               qrcode-generator (MIT), jsQR (Apache 2.0), Firebase JS SDK (Apache 2.0, gebündelt)
+docs/                 Keller-Handbuch, Anleitung Online-Abgleich, Vorschaubild
 ```
 
 **Datenmodell kurz:** Regale `{ id: 'A', note, levels }`, Stellplätze `{ id: 'S1', name }`, Einträge `{ kind: 'box' | 'item', number, title, category, location, order, items, notes, photos }` – Kisten nutzen `items`, Einzelstücke `title`; `order` ist die von Hand gesetzte Reihenfolge auf einem Platz. Ein Platz ist `{ shelf, level }`, `{ zone }`, `{ away: true }` oder `null` (ohne festen Platz).
@@ -118,7 +122,6 @@ Nach Änderungen an Dateien die Konstante `VERSION` in `sw.js` erhöhen, damit i
 
 ## Ideen für später
 
-- Synchronisierung zwischen mehreren Geräten (z. B. über einen kleinen Server oder als native App mit iCloud/CloudKit)
 - Mehrere Bereiche mit eigenen Regalen (Keller, Dachboden, Garage) statt nur Stellplätzen
 - „Ausgeliehen an …“ und Erinnerungen („Weihnachtskisten nach vorne holen“ im November)
 - NFC-Sticker als Alternative zum QR-Code

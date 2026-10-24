@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// Fundort – security rules for the online sync (see docs/ONLINE.md).
+// Every device signs in anonymously. A household can only be read and
+// written by devices whose account is listed in its `members`; a device
+// joins by knowing the household's code (the document id), which adds only
+// its own account. Households can't be listed, so codes can't be found.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /households/{code} {
+      function signedIn() {
+        return request.auth != null;
+      }
+      function member() {
+        return signedIn() && request.auth.uid in resource.data.members;
+      }
+      function joining() {
+        let added = request.resource.data.members.removeAll(resource.data.members);
+        return signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.hasAll(resource.data.members)
+          && added.hasOnly([request.auth.uid]);
+      }
+
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
+      allow update: if member() || joining();
+      allow list, delete: if false;
+
+      match /{document=**} {
+        allow read, write: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/households/$(code)).data.members;
+      }
+    }
+  }
+}

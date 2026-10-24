@@ -9,6 +9,7 @@ import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel } from '../format.
 import { parseCode } from '../qr.js';
 import { navigate } from '../router.js';
 import { haptic } from '../haptics.js';
+import { formatCode } from '../sync.js';
 import { openBoxEditor, relocate } from './box.js';
 
 const SCAN_INTERVAL = 140; // ms between decode attempts
@@ -68,6 +69,16 @@ function cardFor(state) {
           <button class="pill-btn tint" data-scan="open-place">Ansehen</button>
         </div>`;
     }
+    case 'household':
+      return html`
+        <div class="scan-card-main">
+          <span class="scan-check">${icon('people')}</span>
+          <span class="cell-text"><span class="cell-title">Haushalt beitreten</span><span class="cell-sub">Code ${formatCode(state.code)}</span></span>
+        </div>
+        <div class="scan-card-actions">
+          <button class="pill-btn glass" data-scan="dismiss">Abbrechen</button>
+          <button class="pill-btn tint" data-scan="join">Weiter</button>
+        </div>`;
     case 'shelf':
       return html`
         <div class="scan-card-main">
@@ -154,6 +165,8 @@ export default {
         if (!zone) return show({ kind: 'error', title: `Stellplatz ${code.zone} fehlt`, text: 'Lege ihn unter „Mehr → Lagerorte“ an.' });
         return placeScanned({ zone: zone.id });
       }
+
+      if (code.type === 'household') return show({ kind: 'household', code: code.code });
 
       if (code.type === 'box') {
         const box = boxByNumber(code.number);
@@ -244,6 +257,7 @@ export default {
       } else if (action === 'open-box') navigate(`/kiste/${card.box.number}`);
       else if (action === 'open-place') navigate(card.loc.zone ? `/platz/${card.loc.zone}` : `/regal/${card.loc.shelf}/${card.loc.level}`);
       else if (action === 'open-shelf') navigate(`/regal/${card.shelf.id}`);
+      else if (action === 'join') navigate(`/haushalt/${card.code}`);
       else if (action === 'manual') {
         const value = await promptDialog({ title: 'Nummer eingeben', message: 'Die Nummer vom Etikett, z. B. 42.', inputmode: 'numeric', placeholder: '042', confirm: 'Suchen' });
         const n = parseInt(value ?? '', 10);

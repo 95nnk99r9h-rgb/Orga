@@ -9,6 +9,7 @@ export const boxCode = (n) => `${appBase()}#/kiste/${n}`;
 export const levelCode = (shelf, level) => `${appBase()}#/regal/${shelf}/${level}`;
 export const shelfCode = (shelf) => `${appBase()}#/regal/${shelf}`;
 export const zoneCode = (zone) => `${appBase()}#/platz/${zone}`;
+export const householdLink = (code) => `${appBase()}#/haushalt/${code}`;
 
 export function parseCode(text) {
   let m = /#\/kiste\/(\d{1,4})\b/.exec(text) ?? /^\s*(\d{1,4})\s*$/.exec(text);
@@ -19,6 +20,8 @@ export function parseCode(text) {
   if (m) return { type: 'shelf', shelf: m[1].toUpperCase() };
   m = /#\/platz\/(S\d{1,3})\b/i.exec(text);
   if (m) return { type: 'zone', zone: m[1].toUpperCase() };
+  m = /#\/haushalt\/([0-9A-Z]{12})\b/i.exec(text);
+  if (m) return { type: 'household', code: m[1].toUpperCase() };
   return null;
 }
 

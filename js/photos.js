@@ -12,14 +12,22 @@ function toJPEG(img, max, quality) {
   );
 }
 
-export async function processImage(file) {
-  const url = URL.createObjectURL(file);
+async function loadImage(blob) {
+  const url = URL.createObjectURL(blob);
   try {
     const img = new Image();
     img.src = url;
     await img.decode();
-    return { full: await toJPEG(img, 1600, 0.82), thumb: await toJPEG(img, 360, 0.72) };
+    return img;
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+// A smaller copy, e.g. for uploading to the household.
+export const shrink = async (blob, max, quality) => toJPEG(await loadImage(blob), max, quality);
+
+export async function processImage(file) {
+  const img = await loadImage(file);
+  return { full: await toJPEG(img, 1600, 0.82), thumb: await toJPEG(img, 360, 0.72) };
 }

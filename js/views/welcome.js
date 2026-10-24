@@ -5,7 +5,8 @@ import { html, icon, toast } from '../ui.js';
 import { catAttrs, stepper } from '../components.js';
 import { setupCellar, loadDemo, shelfLetter, MAX_LEVELS, ZONE_SUGGESTIONS } from '../store.js';
 import { plural } from '../format.js';
-import { switchTab, refresh } from '../router.js';
+import { switchTab, refresh, navigate } from '../router.js';
+import { syncConfigured } from '../sync.js';
 
 const setup = { levels: [5, 5, 4], zones: new Set(['Unter der Treppe']) };
 
@@ -66,6 +67,7 @@ export default {
 
         <div class="welcome-actions">
           <button class="btn" data-action="setup">Keller einrichten</button>
+          ${syncConfigured() ? html`<button class="btn secondary" data-action="join">${icon('people')} Einem Haushalt beitreten</button>` : ''}
           <button class="btn plain" data-action="demo">${icon('sparkles')} Erst mit Beispieldaten ausprobieren</button>
         </div>
       </main>`;
@@ -96,6 +98,7 @@ export default {
         switchTab('/');
         toast('Keller eingerichtet');
       }
+      if (action === 'join') return navigate('/mehr/haushalt');
       if (action === 'demo') {
         await loadDemo();
         switchTab('/');

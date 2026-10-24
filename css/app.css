@@ -3234,3 +3234,91 @@ button,
 .theme-seg {
   margin: 0;
 }
+
+/* ---------------------------------------------------------- Shared use */
+
+.share-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.share-hero p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--label-2);
+}
+
+.share-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--cat);
+  color: #fff;
+}
+
+.share-icon .i {
+  width: 26px;
+  height: 26px;
+}
+
+.sync-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.sync-card .cell-title {
+  font-weight: 600;
+}
+
+.sync-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.code-card {
+  padding: 20px 16px 18px;
+  text-align: center;
+}
+
+.code-qr {
+  width: 168px;
+  height: 168px;
+  margin: 0 auto;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.code-qr .qr {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.code-text {
+  margin: 14px 0 6px;
+  font: 700 26px/1.1 var(--font-round);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-card p {
+  margin: 0 auto 14px;
+  max-width: 320px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--label-2);
+}
+
+.welcome-actions .btn.secondary {
+  margin-top: 10px;
+}

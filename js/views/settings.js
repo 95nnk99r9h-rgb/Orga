@@ -11,6 +11,8 @@ import { dateLabel, unitsLabel } from '../format.js';
 import { navigate, refresh } from '../router.js';
 import { canInstall, install } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
+import { leaveHousehold } from '../sync.js';
+import { syncLabel } from './household.js';
 
 const row = ({ iconName, color, title, detail = '', href = null, action = null, cls = '' }) => {
   const inner = html`
@@ -44,7 +46,7 @@ async function doImport() {
   }
   if (!(await confirmDialog({
     title: 'Backup wiederherstellen?',
-    message: `Das Backup enthält ${unitsLabel(data.boxes ?? [])}. Alle aktuellen Daten auf diesem Gerät werden ersetzt.`,
+    message: `Das Backup enthält ${unitsLabel(data.boxes ?? [])}. ${state.meta.household ? 'Die Daten im Haushalt werden für alle Geräte ersetzt.' : 'Alle aktuellen Daten auf diesem Gerät werden ersetzt.'}`,
     confirm: 'Ersetzen',
     destructive: true,
   }))) return;
@@ -59,6 +61,7 @@ async function doImport() {
 export const moreView = {
   tab: 'more',
   title: 'Mehr',
+  syncAware: true, // shows the sync status
   render() {
     const backup = state.meta.lastBackup ? `Letztes Backup: ${dateLabel(state.meta.lastBackup)}.` : 'Noch kein Backup erstellt.';
     return html`
@@ -69,6 +72,7 @@ export const moreView = {
         <div class="list">
           ${row({ iconName: 'shelves', color: 'blue', title: 'Lagerorte', detail: `${state.shelves.length} + ${state.zones.length}`, href: '#/mehr/regale' })}
           ${row({ iconName: 'circles', color: 'orange', title: 'Kategorien', detail: String(state.categories.length), href: '#/mehr/kategorien' })}
+          ${row({ iconName: 'people', color: 'green', title: 'Gemeinsam nutzen', detail: syncLabel(), href: '#/mehr/haushalt' })}
         </div>
 
         ${canInstall()
@@ -87,7 +91,7 @@ export const moreView = {
         <h3 class="section-head">Anleitung</h3>
         <div class="list">
           ${row({ iconName: 'book', color: 'green', title: 'Das Fundort-System', href: '#/system' })}
-          ${!state.boxes.length ? row({ iconName: 'sparkles', color: 'purple', title: 'Beispieldaten laden', action: 'demo' }) : ''}
+          ${!state.boxes.length && !state.meta.household ? row({ iconName: 'sparkles', color: 'purple', title: 'Beispieldaten laden', action: 'demo' }) : ''}
         </div>
 
         <h3 class="section-head">Daten</h3>
@@ -95,7 +99,7 @@ export const moreView = {
           ${row({ iconName: 'share', color: 'blue', title: 'Backup erstellen', action: 'export' })}
           ${row({ iconName: 'download', color: 'teal', title: 'Backup wiederherstellen', action: 'import' })}
         </div>
-        <p class="section-foot">Alle Daten bleiben auf diesem Gerät. ${backup} Sichere das Backup z. B. in iCloud Drive, um es auf ein anderes Gerät zu übertragen.</p>
+        <p class="section-foot">${state.meta.household ? 'Die Daten werden mit deinem Haushalt abgeglichen und liegen zusätzlich auf diesem Gerät.' : 'Alle Daten liegen nur auf diesem Gerät.'} ${backup} Sichere das Backup z. B. in iCloud Drive.</p>
 
         <div class="list spaced">
           <button class="cell destructive center" data-action="reset">Alle Daten löschen</button>
@@ -121,10 +125,13 @@ export const moreView = {
       }
       if (action === 'reset' && (await confirmDialog({
         title: 'Alle Daten löschen?',
-        message: 'Kisten, Einzelstücke, Fotos, Lagerorte und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
+        message: state.meta.household
+          ? 'Dieses Gerät verlässt den Haushalt und löscht alles, was hier gespeichert ist. Im Haushalt und auf den anderen Geräten bleibt alles erhalten.'
+          : 'Kisten, Einzelstücke, Fotos, Lagerorte und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
         confirm: 'Alles löschen',
         destructive: true,
       }))) {
+        leaveHousehold();
         await resetAll();
         navigate('/willkommen', { replace: true });
       }

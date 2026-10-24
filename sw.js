@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
 
-const VERSION = 'fundort-v8';
+const VERSION = 'fundort-v9';
 const ASSETS = [
   './',
   'index.html',
@@ -19,6 +19,8 @@ const ASSETS = [
   'js/install.js',
   'js/reorder.js',
   'js/haptics.js',
+  'js/sync.js',
+  'js/firebase-config.js',
   'js/theme.js',
   'js/views/home.js',
   'js/views/browse.js',
@@ -29,8 +31,10 @@ const ASSETS = [
   'js/views/settings.js',
   'js/views/guide.js',
   'js/views/welcome.js',
+  'js/views/household.js',
   'vendor/qrcode.mjs',
   'vendor/jsQR.js',
+  'vendor/firebase.mjs',
   'icons/icon.svg',
   'icons/icon-180.png',
   'icons/icon-192.png',

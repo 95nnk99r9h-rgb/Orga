@@ -4,6 +4,7 @@ import { init, state, subscribe } from './store.js';
 import { html, raw, icon, toast } from './ui.js';
 import { hydratePhotos } from './components.js';
 import { applyTheme } from './theme.js';
+import { initSync } from './sync.js';
 import { setRenderer, navigate, switchTab, back, currentPath, depth } from './router.js';
 import home from './views/home.js';
 import { shelfView, levelView, zoneView } from './views/shelves.js';
@@ -13,6 +14,7 @@ import labels from './views/labels.js';
 import { moreView, shelfSettingsView, categorySettingsView } from './views/settings.js';
 import guide from './views/guide.js';
 import welcome from './views/welcome.js';
+import { householdView } from './views/household.js';
 
 const ROUTES = [
   ['/', home],
@@ -27,6 +29,8 @@ const ROUTES = [
   ['/mehr', moreView],
   ['/mehr/regale', shelfSettingsView],
   ['/mehr/kategorien', categorySettingsView],
+  ['/mehr/haushalt', householdView],
+  ['/haushalt/:code', householdView],
   ['/system', guide],
   ['/willkommen', welcome],
 ].map(([pattern, view]) => {
@@ -80,7 +84,8 @@ function updateNavBar() {
 
 function render() {
   let path = currentPath();
-  if (!state.meta.setupDone) path = '/willkommen';
+  // Before setup only joining a household (by code or scan) skips the welcome.
+  if (!state.meta.setupDone && !/^\/(haushalt\/|mehr\/haushalt$|scan$)/.test(path)) path = '/willkommen';
   else if (path === '/willkommen') path = '/';
   const m = match(path) ?? match('/');
   const d = depth();
@@ -147,6 +152,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => render());
 window.addEventListener('scroll', () => requestAnimationFrame(updateNavBar), { passive: true });
 window.addEventListener('fundort:error', () => toast('Speichern fehlgeschlagen', 'warning'));
+window.addEventListener('fundort:sync', () => current?.view.syncAware && render());
 document.addEventListener('touchstart', () => {}, { passive: true }); // enables :active on iOS
 
 subscribe(() => {
@@ -171,6 +177,7 @@ async function boot() {
   }
   if (!history.state) history.replaceState({ depth: 0 }, '', location.href);
   render();
+  initSync();
 }
 
 boot();

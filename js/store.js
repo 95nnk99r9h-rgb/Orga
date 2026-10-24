@@ -33,7 +33,8 @@ export const ZONE_SUGGESTIONS = ['Boden vor den Regalen', 'Unter der Treppe', 'W
 
 export const MAX_LEVELS = 12;
 
-const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0 });
+// household: { id, name, lastSync } once this device is linked to one.
+const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, settingsModifiedAt: 0, household: null });
 
 export const state = {
   shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
@@ -81,8 +82,37 @@ function persist(promise) {
 }
 
 const settingsRecord = () => ({ shelves: state.shelves, zones: state.zones, categories: state.categories, meta: state.meta });
-const writeBox = (box) => persist(promisify(os('boxes', 'readwrite').put(box)));
-const writeSettings = () => persist(promisify(os('meta', 'readwrite').put(settingsRecord(), 'settings')));
+const putBox = (box) => persist(promisify(os('boxes', 'readwrite').put(box)));
+const putSettings = () => persist(promisify(os('meta', 'readwrite').put(settingsRecord(), 'settings')));
+
+// Online sync (js/sync.js) registers hooks here. Local changes are reported
+// to it; changes arriving from the household go through applyRemote and are
+// not reported back. modifiedAt decides which side wins when both changed.
+let sync = {};
+export const setSyncHooks = (hooks) => {
+  sync = hooks;
+};
+
+function writeBox(box) {
+  box.modifiedAt = Date.now();
+  putBox(box);
+  sync.box?.(box);
+}
+
+function writeSettings() {
+  state.meta.settingsModifiedAt = Date.now();
+  putSettings();
+  sync.settings?.();
+}
+
+// What the household shares; device matters like the backup date stay local.
+export const sharedSettings = () => ({
+  shelves: state.shelves,
+  zones: state.zones,
+  categories: state.categories,
+  printedUpTo: state.meta.printedUpTo,
+  modifiedAt: state.meta.settingsModifiedAt ?? 0,
+});
 
 const listeners = new Set();
 export function subscribe(fn) {
@@ -105,14 +135,18 @@ async function loadAll() {
   state.zones = settings?.zones ?? [];
   state.categories = settings?.categories ?? [];
   state.meta = { ...freshMeta(), ...settings?.meta };
-  state.boxes = (await promisify(os('boxes').getAll())).map(tidy);
+  state.boxes = (await promisify(os('boxes').getAll())).map((stored) => {
+    const { box, changed } = tidy(stored);
+    if (changed) writeBox(box);
+    return box;
+  });
 }
 
 // Boxes are described by their contents, loose items by their title only.
 // Older entries are brought into that shape without losing anything: a box
 // title becomes the first content line, an item's contents go to its notes.
 function tidy(stored) {
-  const box = { kind: 'box', ...stored }; // entries from before loose items existed are boxes
+  const box = { kind: 'box', items: [], photos: [], notes: '', title: '', ...stored }; // entries from before loose items existed are boxes
   let changed = false;
   if (box.kind === 'box' && box.title) {
     if (!box.items.includes(box.title)) box.items = [box.title, ...box.items];
@@ -124,8 +158,7 @@ function tidy(stored) {
     box.items = [];
     changed = true;
   }
-  if (changed) writeBox(box);
-  return box;
+  return { box, changed };
 }
 
 export const uid = () =>
@@ -278,13 +311,18 @@ export function reorderBoxes(ids) {
 export function deleteBox(id) {
   const box = boxById(id);
   if (!box) return;
-  state.boxes = state.boxes.filter((b) => b.id !== id);
+  dropLocal(box);
+  sync.deleteBox?.(box);
+  emit();
+}
+
+function dropLocal(box) {
+  state.boxes = state.boxes.filter((b) => b.id !== box.id);
   const tx = db.transaction(['boxes', 'photos'], 'readwrite');
-  tx.objectStore('boxes').delete(id);
+  tx.objectStore('boxes').delete(box.id);
   for (const pid of box.photos) tx.objectStore('photos').delete(pid);
   box.photos.forEach(forgetPhotoURL);
   persist(done(tx));
-  emit();
 }
 
 // Entries whose place disappears lose their location instead of pointing nowhere.
@@ -329,6 +367,7 @@ export async function savePhotos(boxId, processed) {
   const tx = db.transaction('photos', 'readwrite');
   for (const r of records) tx.objectStore('photos').put(r);
   await persist(done(tx));
+  sync.photos?.(records);
   return records.map((r) => r.id);
 }
 
@@ -340,6 +379,16 @@ export function deletePhotos(ids) {
     forgetPhotoURL(id);
   }
   persist(done(tx));
+  sync.deletePhotos?.(ids);
+}
+
+export const photoRecord = (id) => promisify(os('photos').get(id));
+export const photoIds = () => promisify(os('photos').getAllKeys());
+
+// A photo that arrived from the household: stored locally only.
+export async function storeRemotePhoto(record) {
+  await persist(promisify(os('photos', 'readwrite').put(record)));
+  emit();
 }
 
 // ---------------------------------------------------------------------------
@@ -431,10 +480,13 @@ export function removeCategory(id) {
   emit();
 }
 
-export function setMeta(patch) {
+// The last printed number is shared so two phones don't print the same
+// labels; everything else in meta belongs to this device.
+export function setMeta(patch, { quiet = false } = {}) {
   Object.assign(state.meta, patch);
-  writeSettings();
-  emit();
+  if ('printedUpTo' in patch) writeSettings();
+  else putSettings();
+  if (!quiet) emit();
 }
 
 // levels: number of levels per shelf, e.g. [5, 3, 4]; zoneNames: free spots.
@@ -487,7 +539,61 @@ async function replaceAll({ shelves, zones = [], categories, meta, boxes, photos
   await done(tx);
   for (const key of photoURLs.keys()) forgetPhotoURL(key.split(':')[0]);
   await loadAll();
+  sync.replaced?.();
   emit();
+}
+
+// Changes from the household. Newer local changes win; nothing is reported
+// back to the sync, and the view refreshes once.
+export function applyRemote({ settings = null, boxes = [], removed = [] }) {
+  let changed = false;
+  if (settings && (settings.modifiedAt ?? 0) >= (state.meta.settingsModifiedAt ?? 0)) {
+    const next = { shelves: settings.shelves ?? [], zones: settings.zones ?? [], categories: settings.categories ?? [] };
+    if (JSON.stringify(next) !== JSON.stringify({ shelves: state.shelves, zones: state.zones, categories: state.categories })) {
+      Object.assign(state, next);
+      changed = true;
+    }
+    state.meta.printedUpTo = Math.max(state.meta.printedUpTo, settings.printedUpTo ?? 0);
+    state.meta.settingsModifiedAt = settings.modifiedAt ?? 0;
+    state.meta.setupDone = true;
+    putSettings();
+  }
+  for (const incoming of boxes) {
+    const { box: remote } = tidy(incoming);
+    const local = boxById(remote.id);
+    if (local && (local.modifiedAt ?? local.updatedAt) > (remote.modifiedAt ?? remote.updatedAt)) continue;
+    if (local && JSON.stringify(local) === JSON.stringify(remote)) continue;
+    if (local) state.boxes[state.boxes.indexOf(local)] = remote;
+    else state.boxes.push(remote);
+    putBox(remote);
+    changed = true;
+  }
+  for (const id of removed) {
+    const box = boxById(id);
+    if (!box) continue;
+    dropLocal(box);
+    changed = true;
+  }
+  if (changed) emit();
+}
+
+// Joining a household: this device takes over the household's data.
+export function adoptHousehold({ settings, boxes, household }) {
+  return replaceAll({
+    shelves: settings?.shelves ?? [],
+    zones: settings?.zones ?? [],
+    categories: settings?.categories ?? DEFAULT_CATEGORIES.map((c) => ({ ...c })),
+    meta: {
+      ...freshMeta(),
+      setupDone: true,
+      lastBackup: state.meta.lastBackup,
+      printedUpTo: settings?.printedUpTo ?? 0,
+      settingsModifiedAt: settings?.modifiedAt ?? 0,
+      household,
+    },
+    boxes,
+    photos: [],
+  });
 }
 
 export async function importData(data) {
@@ -502,7 +608,7 @@ export async function importData(data) {
     shelves: data.shelves,
     zones: data.zones ?? [],
     categories: data.categories ?? [],
-    meta: { ...freshMeta(), ...data.meta, setupDone: true },
+    meta: { ...freshMeta(), ...data.meta, setupDone: true, household: state.meta.household ?? null },
     boxes: data.boxes.map((b) => ({ kind: 'box', items: [], photos: [], notes: '', title: '', ...b })),
     photos,
   });
