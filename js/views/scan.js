@@ -8,6 +8,7 @@ import { boxByNumber, boxById, shelfById, zoneById, boxesAt, boxesInZone, locLon
 import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel } from '../format.js';
 import { parseCode } from '../qr.js';
 import { navigate } from '../router.js';
+import { haptic } from '../haptics.js';
 import { openBoxEditor, relocate } from './box.js';
 
 const SCAN_INTERVAL = 140; // ms between decode attempts
@@ -143,7 +144,7 @@ export default {
       finder.classList.add('hit');
       clearTimeout(hitTimer);
       hitTimer = setTimeout(() => finder.classList.remove('hit'), 700);
-      navigator.vibrate?.(25);
+      haptic();
 
       const code = parseCode(text);
       if (!code) return show({ kind: 'error', title: 'Unbekannter Code', text: 'Das ist kein Fundort-Etikett.' });

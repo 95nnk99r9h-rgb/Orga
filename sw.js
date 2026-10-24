@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
 
-const VERSION = 'fundort-v7';
+const VERSION = 'fundort-v8';
 const ASSETS = [
   './',
   'index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   'js/scan-worker.js',
   'js/install.js',
   'js/reorder.js',
+  'js/haptics.js',
   'js/theme.js',
   'js/views/home.js',
   'js/views/browse.js',

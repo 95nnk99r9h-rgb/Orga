@@ -34,7 +34,7 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 ## Was die App kann
 
 - **Lager (Startseite)** – alle Regale mit ihren Böden (unterschiedlich hohe Regale genau so) und alle Stellplätze als kompakte Zeilen mit farbigen Nummern-Chips; Antippen öffnet die Kiste bzw. den Boden. Darüber Filter-Chips für Kisten, Einzelstücke, „Ohne Platz“, „Entnommen“ und Kategorien.
-- **Reihenfolge per Drag & Drop** – stehen mehrere Kisten auf einem Boden oder Stellplatz, eine Nummer gedrückt halten und an die gewünschte Stelle ziehen (mit der Maus: einfach ziehen). Die Reihenfolge gilt auch auf der Seite des Bodens; was neu dazukommt, stellt sich hinten an.
+- **Reihenfolge per Drag & Drop** – stehen mehrere Kisten auf einem Boden oder Stellplatz, eine Nummer gedrückt halten, bis ein kurzes haptisches Feedback kommt (iPhone ab iOS 18, Android), und an die gewünschte Stelle ziehen (mit der Maus: einfach ziehen). Die Reihenfolge gilt auch auf der Seite des Bodens; was neu dazukommt, stellt sich hinten an.
 - **Suche oben auf der Startseite** – Volltextsuche über Inhalt, Titel, Notizen, Kategorie, Nummer und Platz (auch Stellplatz-Namen wie „Treppe“). Findet Wortteile („licht“ → „Lichterkette“, „Kürbis-Lichter“) und markiert die Treffer. Wie unter iOS: Antippen zeigt die zuletzt geänderten Einträge, „Abbrechen“ führt zurück zum Lager.
 - **Kisten und Einzelstücke** – bewusst schlank: eine Kiste hat eine Nummer und ihren Inhalt (in Listen steht der Inhalt als Zeile), ein Einzelstück eine Nummer und einen Titel. Dazu jeweils Kategorie, Platz, Fotos und optionale Notizen. Einzelstücke sind runde, Kisten eckige Nummern-Symbole.
 - **Scannen** – Kamera-Scanner in der App:
@@ -103,6 +103,7 @@ js/qr.js              QR-Codes erzeugen und Etiketten-Inhalte lesen
 js/scan-worker.js     QR-Erkennung im Hintergrund-Thread
 js/install.js         „Zum Home-Bildschirm“: Anleitung für iOS, Installationsdialog für Android
 js/reorder.js         Nummern-Chips durch Halten und Ziehen umsortieren
+js/haptics.js         kurzes haptisches Feedback (Android: Vibration, iOS 18+: System-Haptik)
 js/theme.js           Darstellung: automatisch, hell oder dunkel
 js/views/*.js         Seiten: Lager (Start), Regal/Boden/Stellplatz, Kiste, Scannen, Etiketten, Mehr, System, Willkommen;
                       browse.js ist der Seitenrahmen mit Suche, Verlauf und Filtern

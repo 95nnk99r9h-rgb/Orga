@@ -2,6 +2,8 @@
 // Touch: hold a chip briefly to pick it up – moving earlier means scrolling.
 // Mouse: press and move. A short tap still follows the link.
 
+import { haptic } from './haptics.js';
+
 const HOLD_MS = 350;
 const TOUCH_SLOP = 8;
 const MOUSE_SLOP = 4;
@@ -27,7 +29,7 @@ export function enableReorder(root, onReorder) {
     drag = { chip, row, startIds: chipsOf(row).map((c) => c.dataset.id) };
     chip.classList.add('dragging');
     row.classList.add('reordering');
-    navigator.vibrate?.(15);
+    haptic(); // the chip is free to move
   }
 
   // Put the dragged chip before or after the chip under the pointer and let
@@ -70,7 +72,10 @@ export function enableReorder(root, onReorder) {
     row.classList.remove('reordering');
     swallowClicksUntil = Date.now() + 600; // the release must not open the box
     const ids = chipsOf(row).map((c) => c.dataset.id);
-    if (ids.join() !== startIds.join()) onReorder(ids);
+    if (ids.join() !== startIds.join()) {
+      haptic(); // dropped at a new place
+      onReorder(ids);
+    }
   }
 
   // Touch
