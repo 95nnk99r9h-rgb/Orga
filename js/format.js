@@ -12,7 +12,14 @@ export const KINDS = {
 };
 export const kindOf = (box) => KINDS[box.kind] ?? KINDS.box;
 export const unitName = (box) => `${kindOf(box).name} ${pad(box.number)}`;
-export const boxTitle = (box) => box.title?.trim() || unitName(box);
+
+// A box is described by its contents only, a loose item by its title only.
+// boxTitle is the line shown in lists, boxHeading the name on its own page.
+export function boxTitle(box) {
+  if (box.kind === 'item') return box.title?.trim() || unitName(box);
+  return box.items.length ? box.items.join(', ') : `${unitName(box)} · noch leer`;
+}
+export const boxHeading = (box) => (box.kind === 'item' ? boxTitle(box) : unitName(box));
 
 // "3 Kisten", "1 Einzelstück" or "3 Kisten, 1 Einzelstück".
 export function unitsLabel(list) {

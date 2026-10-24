@@ -2,7 +2,7 @@
 
 import { html, raw, icon, esc } from './ui.js';
 import { state, categoryById, countAt, photoURL, photoURLCached } from './store.js';
-import { pad, boxTitle, locKey, locShort } from './format.js';
+import { pad, boxTitle, kindOf, locKey, locShort } from './format.js';
 
 export function navBar({ title = '', back = null, left = '', right = '' } = {}) {
   return html`
@@ -40,12 +40,6 @@ export function placeCode(loc, cls = '') {
   return html`<span class="loc-code muted ${cls}">${icon(loc ? 'house' : 'tray')}</span>`;
 }
 
-export function itemsPreview(items, max = 3) {
-  if (!items.length) return 'Noch kein Inhalt erfasst';
-  const shown = items.slice(0, max).join(', ');
-  return items.length > max ? `${shown} +${items.length - max}` : shown;
-}
-
 export function photoImg(id, size = 'thumb', cls = '') {
   const src = photoURLCached(id, size);
   return html`<img class="${cls}" data-photo="${id}" data-size="${size}" ${src ? raw(`src="${esc(src)}"`) : ''} alt="" decoding="async">`;
@@ -65,13 +59,16 @@ export function highlight(text, terms) {
   return raw(String(text).split(re).map((part, i) => (i % 2 ? `<mark>${esc(part)}</mark>` : esc(part))).join(''));
 }
 
-export function boxRow(box, { sub = null, href = `#/kiste/${box.number}`, trailing = null } = {}) {
+// One list row: what it is (a box's contents, an item's title), below where
+// it stands and its category. On a place's own page the place is left out.
+export function boxRow(box, { title = null, showLoc = true, href = `#/kiste/${box.number}`, trailing = null } = {}) {
+  const kind = categoryById(box.category)?.name ?? kindOf(box).name;
   return html`
     <a class="cell box-row" href="${href}">
       ${badge(box)}
       <span class="cell-text">
-        <span class="cell-title">${boxTitle(box)}</span>
-        <span class="cell-sub">${sub ?? html`<b class="loc-tag">${locShort(box.location)}</b> ${itemsPreview(box.items)}`}</span>
+        <span class="cell-title">${title ?? boxTitle(box)}</span>
+        <span class="cell-sub">${showLoc ? html`<b class="loc-tag">${locShort(box.location)}</b> ` : ''}${kind}</span>
       </span>
       ${box.photos[0] ? photoImg(box.photos[0], 'thumb', 'row-thumb') : ''}
       ${trailing ?? icon('chevron', 'chev')}

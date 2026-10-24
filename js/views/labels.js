@@ -167,7 +167,7 @@ function boxOptions() {
             <span class="cell-title grow">Auswahl</span>
             <span class="cell-detail">${selectedBoxes().length} von ${total}</span>${icon('chevron', 'chev')}
           </button>
-          ${toggleRow({ name: 'titles', label: 'Titel aufdrucken', sub: 'Besser aus, wenn sich der Inhalt ändern kann', checked: opts.titles })}
+          ${toggleRow({ name: 'titles', label: 'Titel von Einzelstücken aufdrucken', sub: 'Kisten tragen nur Nummer und Farbe', checked: opts.titles })}
         </div>`}`;
 }
 

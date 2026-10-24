@@ -3,11 +3,11 @@
 // recently changed entries and a cancel button, like search on iOS.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, itemsPreview, hydratePhotos } from '../components.js';
+import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, hydratePhotos } from '../components.js';
 import {
   state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount,
 } from '../store.js';
-import { normalize, plural, locShort, unitsLabel } from '../format.js';
+import { normalize, plural, boxTitle, unitsLabel } from '../format.js';
 import { shelfCard, zoneCard, bindRows } from './shelves.js';
 import { installCard, showInstallHint, install, dismissInstallHint } from '../install.js';
 
@@ -100,16 +100,11 @@ function searchResults() {
     <h3 class="section-head">${unitsLabel(results.map((r) => r.box))}</h3>
     <div class="list">
       ${results.map(({ box, matchedItems }) => {
-        // Show matching items first so "where is X" is answered in the list.
+        if (box.kind === 'item' || !box.items.length) return boxRow(box, { title: highlight(boxTitle(box), terms) });
+        // Matching contents first, so "where is X" is answered in the list.
         const rest = box.items.filter((it) => !matchedItems.includes(it));
-        const shown = [...matchedItems, ...rest].slice(0, 4);
-        const more = box.items.length - shown.length;
-        const sub = html`<b class="loc-tag">${locShort(box.location)}</b> ${
-          box.items.length
-            ? html`${shown.map((it, i) => html`${i ? ', ' : ''}${matchedItems.includes(it) ? highlight(it, terms) : it}`)}${more > 0 ? ` +${more}` : ''}`
-            : itemsPreview(box.items)
-        }`;
-        return boxRow(box, { sub });
+        const title = [...matchedItems, ...rest].map((it, i) => html`${i ? ', ' : ''}${matchedItems.includes(it) ? highlight(it, terms) : it}`);
+        return boxRow(box, { title });
       })}
     </div>`;
 }

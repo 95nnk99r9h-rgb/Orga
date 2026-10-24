@@ -52,7 +52,8 @@ Jeder Boden bekommt ein **Boden-Etikett** mittig an die Vorderkante (in der App:
 
 ### 4. Die App merkt sich den Rest
 
-- Zu jeder Nummer: **ein Foto**, **3–10 Stichworte** (bei Einzelstücken z. B. das Zubehör), **Kategorie** und **Platz**.
+- Zu jeder Kiste: **ein Foto**, **3–10 Stichworte zum Inhalt**, **Kategorie** und **Platz**.
+- Zu jedem Einzelstück: **ein Foto**, **ein Titel** (z. B. „Weihnachtsbaum“), **Kategorie** und **Platz**.
 - Gesucht wird in der App: „Lichterkette“ eintippen → „Kiste 002 · A1“.
 
 ---
@@ -74,7 +75,7 @@ Rechne mit **1–2 Minuten pro Stück**. Zu zweit geht es doppelt so schnell: ei
 1. Herausnehmen, öffnen, kurz durchsehen – Aussortiertes direkt in „Spenden“ oder „Weg“.
 2. Nächstes Nummern-Etikett anbringen.
 3. In der App **Scannen** → Etikett scannen → **Kiste** oder **Einzelstück** tippen.
-4. Foto, Titel (z. B. „Weihnachtsdeko“), Kategorie, Stichworte. Sichern.
+4. Foto, Kategorie und – bei Kisten – Stichworte zum Inhalt, bei Einzelstücken ein Titel. Sichern.
 5. Ins Regal oder auf den Stellplatz stellen und dessen **Etikett scannen** → eingelagert.
 
 **Zum Schluss**

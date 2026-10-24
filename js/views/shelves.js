@@ -2,7 +2,7 @@
 // detail pages for a shelf, a level and a zone.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs, itemsPreview } from '../components.js';
+import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs } from '../components.js';
 import { state, shelfById, zoneById, boxesAt, boxesInZone } from '../store.js';
 import { plural, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
@@ -91,7 +91,7 @@ const actionRow = (action, color, iconName, title) => html`
   </button>`;
 
 const placeList = (boxes, empty) =>
-  html`<div class="list">${boxes.length ? boxes.map((b) => boxRow(b, { sub: itemsPreview(b.items) })) : html`<div class="cell muted-cell">${empty}</div>`}</div>`;
+  html`<div class="list">${boxes.length ? boxes.map((b) => boxRow(b, { showLoc: false })) : html`<div class="cell muted-cell">${empty}</div>`}</div>`;
 
 // Shared actions for a level or a zone.
 function bindPlace(root, loc, labelPreset) {

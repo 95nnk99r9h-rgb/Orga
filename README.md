@@ -18,7 +18,7 @@ Fundort macht es wie ein Versandlager („chaotische Lagerhaltung“):
 | 🗄️ | **Jeder Regalboden hat eine Adresse** (A1, A2 … B3 …) – jedes Regal mit so vielen Böden, wie es hat | Man weiß sofort, wo etwas steht |
 | 📍 | **Plätze außerhalb der Regale heißen S1, S2 …** – z. B. „Unter der Treppe“, „Wandhaken“, „Garage“ | Auch Großes und Abseitiges hat einen festen Ort |
 | 🏷️ | **Alles bekommt eine feste Nummer** (001, 002 …) mit QR-Code – Kisten genauso wie Einzelstücke (Weihnachtsbaum, Koffer, Kinderwagen) | Die Nummer bleibt für immer, egal was drin ist oder wo es steht |
-| 📱 | **Die App merkt sich den Rest**: Foto, Stichworte, Platz | Gesucht wird am Handy, nicht im Regal |
+| 📱 | **Die App merkt sich den Rest**: Foto, Inhalt bzw. Titel, Platz | Gesucht wird am Handy, nicht im Regal |
 
 „Wo ist die Lichterkette?“ → in der App „licht“ eintippen → **Kiste 002, Regal A, Boden 1**.
 
@@ -34,8 +34,8 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 ## Was die App kann
 
 - **Lager (Startseite)** – alle Regale mit ihren Böden (unterschiedlich hohe Regale werden genau so dargestellt) und alle Stellplätze, jeweils mit farbigen Nummern-Chips. Eigene Seiten pro Regal, Boden und Stellplatz. Darunter Filter-Chips für Kisten, Einzelstücke, „Ohne Platz“, „Entnommen“ und Kategorien.
-- **Suche oben auf der Startseite** – Volltextsuche über Titel, Inhalt, Notizen, Kategorie, Nummer und Platz (auch Stellplatz-Namen wie „Treppe“). Findet Wortteile („licht“ → „Lichterkette“, „Kürbis-Lichter“) und markiert die Treffer. Wie unter iOS: Antippen zeigt die zuletzt geänderten Einträge, „Abbrechen“ führt zurück zum Lager.
-- **Kisten und Einzelstücke** – Nummer, Titel, Kategorie, Platz, Fotos, Inhalt bzw. Zubehör und Notizen. Einzelstücke sind runde, Kisten eckige Nummern-Symbole.
+- **Suche oben auf der Startseite** – Volltextsuche über Inhalt, Titel, Notizen, Kategorie, Nummer und Platz (auch Stellplatz-Namen wie „Treppe“). Findet Wortteile („licht“ → „Lichterkette“, „Kürbis-Lichter“) und markiert die Treffer. Wie unter iOS: Antippen zeigt die zuletzt geänderten Einträge, „Abbrechen“ führt zurück zum Lager.
+- **Kisten und Einzelstücke** – bewusst schlank: eine Kiste hat eine Nummer und ihren Inhalt (in Listen steht der Inhalt als Zeile), ein Einzelstück eine Nummer und einen Titel. Dazu jeweils Kategorie, Platz, Fotos und optionale Notizen. Einzelstücke sind runde, Kisten eckige Nummern-Symbole.
 - **Scannen** – Kamera-Scanner in der App:
   - Nummern-Etikett scannen → Kiste bzw. Einzelstück wird angezeigt
   - danach Boden- oder Stellplatz-Etikett scannen → dort eingelagert (mit „Widerrufen“)
@@ -76,7 +76,7 @@ Die Anleitung findest du auch jederzeit unter *Mehr → Als App installieren*. A
 - **Mit der App scannen, nicht mit der Kamera-App.** Auf dem iPhone haben die installierte App und Safari getrennte Speicher. Scannt man ein Etikett mit der normalen Kamera, öffnet sich Safari ohne deine Daten. Die QR-Codes funktionieren trotzdem dauerhaft, auch wenn die App einmal umzieht – der Scanner liest nur Nummer, Boden bzw. Stellplatz aus.
 - **Drucken:** Im Druckdialog „Tatsächliche Größe“ / 100 % wählen und Seitenränder/Skalierung ausschalten. Am bequemsten druckt man vom Computer oder aus Safari.
 - **Etiketten haltbar machen:** auf normales Papier drucken und mit breitem Klebeband oder Klebefolie überkleben, in selbstklebende Etikettentaschen stecken oder direkt auf Etikettenbögen drucken. Für Einzelstücke eignen sich kleine Etiketten als Anhänger (lochen, mit Kabelbinder befestigen).
-- **Ältere Daten** aus der ersten Version werden automatisch übernommen: Alles Bestehende gilt als Kiste, Stellplätze kommen einfach dazu.
+- **Ältere Daten** werden automatisch übernommen: Alles aus der ersten Version gilt als Kiste; ein früherer Kisten-Titel wird zur ersten Inhaltszeile, früheres Zubehör von Einzelstücken landet in den Notizen.
 
 ## Entwicklung
 
@@ -106,7 +106,7 @@ vendor/               qrcode-generator (MIT), jsQR (Apache 2.0)
 docs/                 Keller-Handbuch und Vorschaubild
 ```
 
-**Datenmodell kurz:** Regale `{ id: 'A', note, levels }`, Stellplätze `{ id: 'S1', name }`, Einträge `{ kind: 'box' | 'item', number, title, category, location, items, notes, photos }`. Ein Platz ist `{ shelf, level }`, `{ zone }`, `{ away: true }` oder `null` (ohne festen Platz).
+**Datenmodell kurz:** Regale `{ id: 'A', note, levels }`, Stellplätze `{ id: 'S1', name }`, Einträge `{ kind: 'box' | 'item', number, title, category, location, items, notes, photos }` – Kisten nutzen `items`, Einzelstücke `title`. Ein Platz ist `{ shelf, level }`, `{ zone }`, `{ away: true }` oder `null` (ohne festen Platz).
 
 Nach Änderungen an Dateien die Konstante `VERSION` in `sw.js` erhöhen, damit installierte Apps sicher die neue Version laden. `?nosw` an die URL anhängen schaltet den Service Worker beim Entwickeln ab.
 

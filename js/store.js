@@ -105,8 +105,27 @@ async function loadAll() {
   state.zones = settings?.zones ?? [];
   state.categories = settings?.categories ?? [];
   state.meta = { ...freshMeta(), ...settings?.meta };
-  // Entries saved before loose items existed are boxes.
-  state.boxes = (await promisify(os('boxes').getAll())).map((b) => ({ kind: 'box', ...b }));
+  state.boxes = (await promisify(os('boxes').getAll())).map(tidy);
+}
+
+// Boxes are described by their contents, loose items by their title only.
+// Older entries are brought into that shape without losing anything: a box
+// title becomes the first content line, an item's contents go to its notes.
+function tidy(stored) {
+  const box = { kind: 'box', ...stored }; // entries from before loose items existed are boxes
+  let changed = false;
+  if (box.kind === 'box' && box.title) {
+    if (!box.items.includes(box.title)) box.items = [box.title, ...box.items];
+    box.title = '';
+    changed = true;
+  }
+  if (box.kind === 'item' && box.items.length) {
+    box.notes = [box.notes, `Zubehör: ${box.items.join(', ')}`].filter(Boolean).join('\n');
+    box.items = [];
+    changed = true;
+  }
+  if (changed) writeBox(box);
+  return box;
 }
 
 export const uid = () =>
@@ -476,48 +495,52 @@ export const resetAll = () => replaceAll({ shelves: [], zones: [], categories: [
 
 // ---------------------------------------------------------------------------
 // Demo data, to try the app before the real cellar is done.
-// [number, title, category, place, items, notes, kind]
 
-const DEMO = [
-  [1, 'Christbaumschmuck', 'weihnachten', 'A1', 'Christbaumkugeln rot, Christbaumkugeln gold, Lametta, Baumspitze, Strohsterne'],
-  [2, 'Lichterketten', 'weihnachten', 'A1', 'Lichterkette innen (3×), Lichterkette außen, Verlängerungskabel, Zeitschaltuhr'],
-  [3, 'Krippe & Adventsdeko', 'weihnachten', 'A2', 'Krippe mit Figuren, Adventskranz-Ständer, Schwibbogen, Räuchermännchen', 'Zerbrechlich – nicht unten hinstellen.'],
-  [4, 'Osterdeko', 'deko', 'A3', 'Ostereier zum Aufhängen, Osterhasen, Eierbecher, Tischdecke Frühling'],
-  [5, 'Halloween & Fasching', 'deko', 'A3', 'Kürbis-Lichter, Hexenkostüm, Skelett-Kostüm Kinder, Spinnweben-Deko, Schminke'],
-  [6, 'Winterkleidung Kinder', 'kleidung', 'B1', 'Schneeanzug Gr. 110, Skihandschuhe, Mützen, Thermohosen'],
-  [7, 'Babykleidung 62–74', 'kleidung', 'B2', 'Bodys, Strampler, Schlafsack 70 cm, Mützchen', 'Für die Cousine aufheben.'],
-  [8, 'Sommersachen', 'kleidung', 'B2', 'Badehosen, Sommerkleider, Sonnenhüte, Flip-Flops, Strandtuch'],
-  [9, 'Skiausrüstung', 'freizeit', 'D5', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
-  [10, 'Camping', 'freizeit', 'C4', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
-  [11, 'Werkzeug', 'werkzeug', 'C4', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
-  [12, 'Kabel & Ladegeräte', 'elektronik', 'C2', 'HDMI-Kabel, USB-C-Ladegeräte, Mehrfachstecker, alte Handys, Router (alt)'],
-  [13, 'Lego & Duplo', 'kinder', 'D3', 'Duplo-Steine, Lego City Polizeistation, Lego-Anleitungen'],
-  [14, 'Partygeschirr', 'haushalt', 'D2', 'Pappteller, Becher, Servietten, Luftballons, Girlanden'],
-  [15, 'Steuer & Verträge', 'dokumente', 'D6', 'Ordner Steuer 2019–2021, Ordner Steuer 2022–2024, Mietvertrag alt, Garantiebelege'],
-  [16, 'Fotoalben', 'erinnerungen', 'D1', 'Fotoalben 1990–2005, Hochzeitsalbum, Kinderzeichnungen'],
-  [17, 'Geschenkpapier', 'haushalt', 'none', 'Geschenkpapier, Schleifenband, Geschenktüten, Grußkarten'],
-  [18, 'Raclette & Fondue', 'haushalt', 'away', 'Raclette-Grill, Fondue-Set, Fonduegabeln', 'Gerade oben in der Küche.'],
-  [19, 'Weihnachtsbaum (künstlich)', 'weihnachten', '@S2', 'Baumständer, Ersatzzweige', 'In der Originalhülle, 1,80 m.', 'item'],
-  [20, 'Kinderwagen', 'kinder', '@S1', 'Regenschutz, Sonnensegel, Fußsack', '', 'item'],
-  [21, 'Großer Koffer', 'freizeit', 'B3', 'Reisetaschen, Kulturbeutel, Reiseadapter', 'Steht im hohen unteren Fach.', 'item'],
-  [22, 'Schlitten', 'freizeit', '@S3', '', '', 'item'],
+// Boxes: [number, category, place, contents, notes]
+const DEMO_BOXES = [
+  [1, 'weihnachten', 'A1', 'Christbaumkugeln rot, Christbaumkugeln gold, Lametta, Baumspitze, Strohsterne'],
+  [2, 'weihnachten', 'A1', 'Lichterkette innen (3×), Lichterkette außen, Verlängerungskabel, Zeitschaltuhr'],
+  [3, 'weihnachten', 'A2', 'Krippe mit Figuren, Adventskranz-Ständer, Schwibbogen, Räuchermännchen', 'Zerbrechlich – nicht unten hinstellen.'],
+  [4, 'deko', 'A3', 'Ostereier zum Aufhängen, Osterhasen, Eierbecher, Tischdecke Frühling'],
+  [5, 'deko', 'A3', 'Kürbis-Lichter, Hexenkostüm, Skelett-Kostüm Kinder, Spinnweben-Deko, Schminke'],
+  [6, 'kleidung', 'B1', 'Schneeanzug Gr. 110, Skihandschuhe, Mützen, Thermohosen'],
+  [7, 'kleidung', 'B2', 'Bodys Gr. 62–74, Strampler, Schlafsack 70 cm, Mützchen', 'Für die Cousine aufheben.'],
+  [8, 'kleidung', 'B2', 'Badehosen, Sommerkleider, Sonnenhüte, Flip-Flops, Strandtuch'],
+  [9, 'freizeit', 'D5', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
+  [10, 'freizeit', 'C4', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
+  [11, 'werkzeug', 'C4', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
+  [12, 'elektronik', 'C2', 'HDMI-Kabel, USB-C-Ladegeräte, Mehrfachstecker, alte Handys, Router (alt)'],
+  [13, 'kinder', 'D3', 'Duplo-Steine, Lego City Polizeistation, Lego-Anleitungen'],
+  [14, 'haushalt', 'D2', 'Pappteller, Becher, Servietten, Luftballons, Girlanden'],
+  [15, 'dokumente', 'D6', 'Ordner Steuer 2019–2021, Ordner Steuer 2022–2024, Mietvertrag alt, Garantiebelege'],
+  [16, 'erinnerungen', 'D1', 'Fotoalben 1990–2005, Hochzeitsalbum, Kinderzeichnungen'],
+  [17, 'haushalt', 'none', 'Geschenkpapier, Schleifenband, Geschenktüten, Grußkarten'],
+  [18, 'haushalt', 'away', 'Raclette-Grill, Fondue-Set, Fonduegabeln', 'Gerade oben in der Küche.'],
+];
+
+// Loose items: [number, title, category, place, notes]
+const DEMO_ITEMS = [
+  [19, 'Weihnachtsbaum (künstlich)', 'weihnachten', '@S2', 'In der Originalhülle, 1,80 m, Baumständer liegt dabei.'],
+  [20, 'Kinderwagen', 'kinder', '@S1'],
+  [21, 'Großer Koffer', 'freizeit', 'B3', 'Steht im hohen unteren Fach.'],
+  [22, 'Schlitten', 'freizeit', '@S3'],
 ];
 
 export async function loadDemo() {
   const now = Date.now();
-  const boxes = DEMO.map(([number, title, category, where, items, notes = '', kind = 'box'], i) => ({
+  const entry = (i, fields) => ({
     id: uid(),
-    kind,
-    number,
-    title,
-    category,
-    location: parseLocKey(where),
-    items: items ? items.split(', ') : [],
-    notes,
     photos: [],
     createdAt: now - (30 - i) * 86400000,
-    updatedAt: now - (DEMO.length - i) * 3600000 * 7,
-  }));
+    updatedAt: now - (30 - i) * 3600000 * 7,
+    ...fields,
+  });
+  const boxes = [
+    ...DEMO_BOXES.map(([number, category, where, items, notes = ''], i) =>
+      entry(i, { kind: 'box', number, title: '', category, location: parseLocKey(where), items: items.split(', '), notes })),
+    ...DEMO_ITEMS.map(([number, title, category, where, notes = ''], i) =>
+      entry(DEMO_BOXES.length + i, { kind: 'item', number, title, category, location: parseLocKey(where), items: [], notes })),
+  ];
   await replaceAll({
     shelves: [
       { id: 'A', note: 'Links neben der Tür', levels: 5 },

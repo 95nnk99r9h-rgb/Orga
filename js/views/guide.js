@@ -32,14 +32,14 @@ const RULES = [
     color: 'indigo',
     iconName: 'search',
     title: 'Die App merkt sich den Rest',
-    text: 'Foto, Stichworte und Platz stehen in der App. Gesucht wird am Handy, nicht im Regal: „Lichterkette“ eintippen und sehen, dass sie in Kiste 002 auf A1 liegt.',
+    text: 'Foto, Inhalt bzw. Titel und Platz stehen in der App. Gesucht wird am Handy, nicht im Regal: „Lichterkette“ eintippen und sehen, dass sie in Kiste 002 auf A1 liegt.',
   },
 ];
 
 const DAY = [
   ['Regale und Stellplätze beschriften', 'Unter „Etiketten → Regale & Plätze“ drucken. Je ein Etikett mittig an die Vorderkante jedes Bodens, Stellplatz-Etiketten an die Wand oder auf den Boden.'],
   ['Nummern vorab drucken', 'Unter „Etiketten → Nummern“ z. B. 001–024. Die Etiketten passen für Kisten und Einzelstücke.'],
-  ['Stück für Stück erfassen', 'Etikett auf die Stirnseite kleben (bei Einzelstücken gut sichtbar oder als Anhänger), scannen, „Kiste“ oder „Einzelstück“ tippen, Foto machen und 3–10 Stichworte eintippen.'],
+  ['Stück für Stück erfassen', 'Etikett auf die Stirnseite kleben (bei Einzelstücken gut sichtbar oder als Anhänger), scannen, „Kiste“ oder „Einzelstück“ tippen und ein Foto machen. Bei Kisten 3–10 Stichworte zum Inhalt eintippen, bei Einzelstücken nur einen Titel.'],
   ['Einlagern', 'Ins Regal oder auf den Stellplatz stellen und dessen Etikett scannen. Fertig – die App weiß jetzt, wo es steht.'],
   ['Gleich aussortieren', 'Was du beim Durchsehen nicht mehr brauchst, kommt in eine Kiste „Spenden“ oder „Weg“ – nicht zurück ins Regal.'],
 ];

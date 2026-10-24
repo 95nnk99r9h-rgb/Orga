@@ -7,7 +7,7 @@ import {
   state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
   nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong,
 } from '../store.js';
-import { pad, boxTitle, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
+import { pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
 import { processImage } from '../photos.js';
 import { navigate, back, currentPath } from '../router.js';
 import { presetLabels } from './labels.js';
@@ -50,16 +50,16 @@ export const boxView = {
     const isItem = box.kind === 'item';
     return html`
       ${navBar({
-        title: boxTitle(box),
+        title: boxHeading(box),
         back: '/',
         right: html`<button class="pill-btn glass" data-action="edit">Bearbeiten</button>`,
       })}
       <main class="page">
         <section class="hero">
           ${badge(box, 'xl')}
-          <h1 data-title-anchor>${boxTitle(box)}</h1>
+          <h1 data-title-anchor>${boxHeading(box)}</h1>
           <p class="hero-sub">
-            ${kindOf(box).name} ·
+            ${isItem ? `${kindOf(box).name} · ` : ''}
             ${cat ? html`<span class="dot" ${catAttrs(cat.color)}></span>${cat.name}` : 'ohne Kategorie'}
           </p>
         </section>
@@ -77,20 +77,23 @@ export const boxView = {
           </label>
         </div>
 
-        <h3 class="section-head">${isItem ? 'Zubehör & Inhalt' : 'Inhalt'}${box.items.length ? ` · ${box.items.length}` : ''}</h3>
-        <div class="list">
-          ${box.items.map(
-            (item, i) => html`
-              <div class="cell item-row">
-                <span class="cell-title">${item}</span>
-                <button class="icon-btn" data-action="remove-item" data-i="${i}" aria-label="${item} entfernen">${icon('xmark')}</button>
-              </div>`,
-          )}
-          <form class="cell add-row" data-form="add-item">
-            ${icon('plus', 'add-icon')}
-            <input name="item" placeholder="${isItem ? 'Zubehör hinzufügen' : 'Gegenstand hinzufügen'}" autocomplete="off" enterkeyhint="done" aria-label="Hinzufügen">
-          </form>
-        </div>
+        ${isItem
+          ? ''
+          : html`
+            <h3 class="section-head">Inhalt${box.items.length ? ` · ${box.items.length}` : ''}</h3>
+            <div class="list">
+              ${box.items.map(
+                (item, i) => html`
+                  <div class="cell item-row">
+                    <span class="cell-title">${item}</span>
+                    <button class="icon-btn" data-action="remove-item" data-i="${i}" aria-label="${item} entfernen">${icon('xmark')}</button>
+                  </div>`,
+              )}
+              <form class="cell add-row" data-form="add-item">
+                ${icon('plus', 'add-icon')}
+                <input name="item" placeholder="Gegenstand hinzufügen" autocomplete="off" enterkeyhint="done" aria-label="Gegenstand hinzufügen">
+              </form>
+            </div>`}
 
         ${box.notes ? html`<h3 class="section-head">Notizen</h3><div class="card note-card">${box.notes}</div>` : ''}
 
@@ -196,8 +199,8 @@ function missing(number) {
 // Editor
 
 const TEXTS = {
-  box: { create: 'Neue Kiste', edit: 'Kiste bearbeiten', title: 'z. B. Weihnachtsdeko', itemsHead: 'Inhalt', items: 'Ein Gegenstand pro Zeile, z. B.\nLichterkette\nChristbaumkugeln' },
-  item: { create: 'Neues Einzelstück', edit: 'Einzelstück bearbeiten', title: 'z. B. Weihnachtsbaum, Koffer, Kinderwagen', itemsHead: 'Zubehör & Inhalt (optional)', items: 'z. B. Baumständer, Ersatzteile' },
+  box: { create: 'Neue Kiste', edit: 'Kiste bearbeiten' },
+  item: { create: 'Neues Einzelstück', edit: 'Einzelstück bearbeiten' },
 };
 
 const photoStrip = (draft) => html`
@@ -235,9 +238,9 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
           <span class="field-label">Nummer</span>
           <input name="number" inputmode="numeric" pattern="[0-9]*" value="${pad(number)}" enterkeyhint="next">
         </label>
-        <label class="cell field">
+        <label class="cell field" data-only="item" ${draft.kind === 'item' ? '' : 'hidden'}>
           <span class="field-label">Titel</span>
-          <input name="title" value="${box?.title ?? ''}" placeholder="${t.title}" enterkeyhint="next" data-text="title">
+          <input name="title" value="${box?.title ?? ''}" placeholder="z. B. Weihnachtsbaum, Koffer" enterkeyhint="done">
         </label>
       </div>
       <p class="section-foot">Die Nummer steht auf dem Etikett und bleibt für immer gleich.</p>
@@ -255,11 +258,13 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
       <h3 class="section-head">Fotos</h3>
       <div class="photo-strip" data-photos>${photoStrip(draft)}</div>
 
-      <h3 class="section-head" data-text="itemsHead">${t.itemsHead}</h3>
-      <div class="list">
-        <textarea name="items" rows="4" placeholder="${t.items}" data-text="items">${(box?.items ?? []).join('\n')}</textarea>
+      <div data-only="box" ${draft.kind === 'box' ? '' : 'hidden'}>
+        <h3 class="section-head">Inhalt</h3>
+        <div class="list">
+          <textarea name="items" rows="4" placeholder="${'Ein Gegenstand pro Zeile, z. B.\nLichterkette\nChristbaumkugeln'}">${(box?.items ?? []).join('\n')}</textarea>
+        </div>
+        <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile.</p>
       </div>
-      <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile.</p>
 
       <h3 class="section-head">Notizen</h3>
       <div class="list">
@@ -280,14 +285,12 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
       };
       hydratePhotos(strip);
 
-      // Switching kind only swaps wording; everything typed so far stays.
+      // Boxes get contents, loose items a title. Switching only hides the
+      // other field, so nothing typed is lost until saving.
       const applyKind = () => {
-        const texts = TEXTS[draft.kind];
         el.querySelectorAll('[data-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === draft.kind)));
-        heading.textContent = isNew ? texts.create : texts.edit;
-        el.querySelector('[data-text="title"]').placeholder = texts.title;
-        el.querySelector('[data-text="items"]').placeholder = texts.items;
-        el.querySelector('[data-text="itemsHead"]').textContent = texts.itemsHead;
+        el.querySelectorAll('[data-only]').forEach((n) => (n.hidden = n.dataset.only !== draft.kind));
+        heading.textContent = isNew ? TEXTS[draft.kind].create : TEXTS[draft.kind].edit;
       };
 
       el.addEventListener('click', (e) => {
@@ -336,13 +339,14 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
 
     async done(el) {
       const form = el.querySelector('form');
+      const isItem = draft.kind === 'item';
       const data = {
         kind: draft.kind,
         number: Number(form.number.value.trim()),
-        title: form.title.value,
+        title: isItem ? form.title.value : '',
         category: draft.category,
         location: isValidLocation(draft.location) ? draft.location : null,
-        items: splitItems(form.items.value),
+        items: isItem ? [] : splitItems(form.items.value),
         notes: form.notes.value.trim(),
       };
       const saved = isNew ? createBox(data) : updateBox(box.id, data);
