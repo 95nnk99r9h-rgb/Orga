@@ -1,6 +1,6 @@
-// QR codes for labels. Box labels link to #/kiste/<n>, shelf labels to
-// #/regal/<A>/<level>; the scanner only looks at that hash part, so printed
-// labels keep working even if the app moves to another address.
+// QR codes for labels. Numbered labels link to #/kiste/<n>, level labels to
+// #/regal/<A>/<level>, zone labels to #/platz/<S1>; the scanner only looks at
+// that hash part, so printed labels keep working if the app moves.
 
 import qrcode from '../vendor/qrcode.mjs';
 
@@ -8,6 +8,7 @@ export const appBase = () => location.origin + location.pathname.replace(/index\
 export const boxCode = (n) => `${appBase()}#/kiste/${n}`;
 export const levelCode = (shelf, level) => `${appBase()}#/regal/${shelf}/${level}`;
 export const shelfCode = (shelf) => `${appBase()}#/regal/${shelf}`;
+export const zoneCode = (zone) => `${appBase()}#/platz/${zone}`;
 
 export function parseCode(text) {
   let m = /#\/kiste\/(\d{1,4})\b/.exec(text) ?? /^\s*(\d{1,4})\s*$/.exec(text);
@@ -16,6 +17,8 @@ export function parseCode(text) {
   if (m) return { type: 'level', shelf: m[1].toUpperCase(), level: Number(m[2]) };
   m = /#\/regal\/([A-Z]{1,2})\/?$/i.exec(text);
   if (m) return { type: 'shelf', shelf: m[1].toUpperCase() };
+  m = /#\/platz\/(S\d{1,3})\b/i.exec(text);
+  if (m) return { type: 'zone', zone: m[1].toUpperCase() };
   return null;
 }
 

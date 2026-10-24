@@ -1,12 +1,13 @@
-// Box detail page plus the sheets that create, edit and move boxes.
+// Detail page of a numbered entry – a box or a large loose item – plus the
+// sheets that create, edit and move entries.
 
 import { html, icon, openSheet, confirmDialog, alertDialog, toast } from '../ui.js';
-import { navBar, badge, photoImg, hydratePhotos, locationGrid, emptyState, shelfDiagram, catAttrs } from '../components.js';
+import { navBar, badge, photoImg, hydratePhotos, locationGrid, emptyState, shelfDiagram, catAttrs, placeCode } from '../components.js';
 import {
-  state, boxByNumber, boxById, categoryById, shelfById, createBox, updateBox, moveBox, deleteBox,
-  nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes,
+  state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
+  nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong,
 } from '../store.js';
-import { pad, boxTitle, locLong, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
+import { pad, boxTitle, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
 import { processImage } from '../photos.js';
 import { navigate, back, currentPath } from '../router.js';
 import { presetLabels } from './labels.js';
@@ -14,15 +15,39 @@ import { presetLabels } from './labels.js';
 let refocusQuickAdd = false;
 let deletedNumber = null;
 
+function locationCard(loc) {
+  const shelf = loc?.shelf ? shelfById(loc.shelf) : null;
+  const zone = loc?.zone ? zoneById(loc.zone) : null;
+  return html`
+    <section class="card loc-card">
+      <div class="loc-main">
+        ${placeCode(loc)}
+        <span class="loc-text">
+          <small>${zone ? 'Stellplatz' : 'Platz'}</small>
+          <strong>${locLong(loc)}</strong>
+          ${shelf?.note ? html`<span>${shelf.note}</span>` : ''}
+        </span>
+        ${shelf ? shelfDiagram(shelf.levels, loc.level) : ''}
+      </div>
+      <div class="card-actions">
+        <button data-action="move">${icon('move')} Umlagern</button>
+        ${shelf
+          ? html`<a href="#/regal/${loc.shelf}/${loc.level}">${icon('shelves')} Boden ansehen</a>`
+          : zone
+            ? html`<a href="#/platz/${zone.id}">${icon('zone')} Stellplatz ansehen</a>`
+            : html`<button data-action="move">${icon('pin')} Platz wählen</button>`}
+      </div>
+    </section>`;
+}
+
 export const boxView = {
-  title: ({ number }) => `Kiste ${pad(number)}`,
+  title: ({ number }) => `Nr. ${pad(number)}`,
 
   render({ number }) {
     const box = boxByNumber(Number(number));
     if (!box) return missing(Number(number));
     const cat = categoryById(box.category);
-    const loc = box.location;
-    const shelf = loc && !loc.away ? shelfById(loc.shelf) : null;
+    const isItem = box.kind === 'item';
     return html`
       ${navBar({
         title: boxTitle(box),
@@ -34,27 +59,12 @@ export const boxView = {
           ${badge(box, 'xl')}
           <h1 data-title-anchor>${boxTitle(box)}</h1>
           <p class="hero-sub">
-            ${cat ? html`<span class="dot" ${catAttrs(cat.color)}></span>${cat.name}` : 'Ohne Kategorie'}
+            ${kindOf(box).name} ·
+            ${cat ? html`<span class="dot" ${catAttrs(cat.color)}></span>${cat.name}` : 'ohne Kategorie'}
           </p>
         </section>
 
-        <section class="card loc-card">
-          <div class="loc-main">
-            <span class="loc-code ${shelf ? '' : 'muted'}">${shelf ? `${loc.shelf}${loc.level}` : icon(loc ? 'house' : 'tray')}</span>
-            <span class="loc-text">
-              <small>Platz</small>
-              <strong>${locLong(loc)}</strong>
-              ${shelf?.note ? html`<span>${shelf.note}</span>` : ''}
-            </span>
-            ${shelf ? shelfDiagram(shelf.levels, loc.level) : ''}
-          </div>
-          <div class="card-actions">
-            <button data-action="move">${icon('move')} Umlagern</button>
-            ${shelf
-              ? html`<a href="#/regal/${loc.shelf}/${loc.level}">${icon('shelves')} Boden ansehen</a>`
-              : html`<button data-action="move">${icon('pin')} Platz wählen</button>`}
-          </div>
-        </section>
+        ${locationCard(box.location)}
 
         <h3 class="section-head">Fotos</h3>
         <div class="photo-strip">
@@ -62,12 +72,12 @@ export const boxView = {
             (id, i) => html`<button class="photo" data-action="view-photo" data-i="${i}" aria-label="Foto ${i + 1} öffnen">${photoImg(id)}</button>`,
           )}
           <label class="photo-add ${box.photos.length ? '' : 'wide'}">
-            ${icon('camera')}<span>${box.photos.length ? 'Foto' : 'Foto vom Inhalt aufnehmen'}</span>
+            ${icon('camera')}<span>${box.photos.length ? 'Foto' : isItem ? 'Foto aufnehmen' : 'Foto vom Inhalt aufnehmen'}</span>
             <input type="file" accept="image/*" multiple hidden data-input="photo">
           </label>
         </div>
 
-        <h3 class="section-head">Inhalt${box.items.length ? ` · ${box.items.length}` : ''}</h3>
+        <h3 class="section-head">${isItem ? 'Zubehör & Inhalt' : 'Inhalt'}${box.items.length ? ` · ${box.items.length}` : ''}</h3>
         <div class="list">
           ${box.items.map(
             (item, i) => html`
@@ -78,7 +88,7 @@ export const boxView = {
           )}
           <form class="cell add-row" data-form="add-item">
             ${icon('plus', 'add-icon')}
-            <input name="item" placeholder="Gegenstand hinzufügen" autocomplete="off" enterkeyhint="done" aria-label="Gegenstand hinzufügen">
+            <input name="item" placeholder="${isItem ? 'Zubehör hinzufügen' : 'Gegenstand hinzufügen'}" autocomplete="off" enterkeyhint="done" aria-label="Hinzufügen">
           </form>
         </div>
 
@@ -91,7 +101,7 @@ export const boxView = {
           </button>
           <button class="cell destructive" data-action="delete">
             <span class="icon-tile" ${catAttrs('red')}>${icon('trash')}</span>
-            <span class="cell-title">Kiste löschen</span>
+            <span class="cell-title">${kindOf(box).name} löschen</span>
           </button>
         </div>
         <p class="meta-foot">Angelegt am ${dateLabel(box.createdAt)} · geändert ${relTime(box.updatedAt)}</p>
@@ -105,7 +115,7 @@ export const boxView = {
       if (!t) return;
       switch (t.dataset.action) {
         case 'create':
-          openBoxEditor({ preset: { number: Number(number) } });
+          openBoxEditor({ preset: { number: Number(number), kind: t.dataset.kind } });
           break;
         case 'edit':
           openBoxEditor({ box });
@@ -125,15 +135,15 @@ export const boxView = {
           break;
         case 'delete':
           if (await confirmDialog({
-            title: `Kiste ${pad(box.number)} löschen?`,
-            message: 'Inhalt und Fotos werden entfernt. Das Etikett kannst du für eine neue Kiste wiederverwenden.',
+            title: `${unitName(box)} löschen?`,
+            message: 'Inhalt und Fotos werden entfernt. Das Etikett kannst du für etwas Neues wiederverwenden.',
             confirm: 'Löschen',
             destructive: true,
           })) {
             deletedNumber = box.number;
             deleteBox(box.id);
             back('/');
-            toast(`Kiste ${pad(box.number)} gelöscht`, 'trash');
+            toast(`${unitName(box)} gelöscht`, 'trash');
           }
           break;
       }
@@ -149,8 +159,7 @@ export const boxView = {
     });
     if (refocusQuickAdd) {
       refocusQuickAdd = false;
-      const input = root.querySelector('[data-form="add-item"] input');
-      input?.focus({ preventScroll: true });
+      root.querySelector('[data-form="add-item"] input')?.focus({ preventScroll: true });
     }
 
     root.querySelector('[data-input="photo"]')?.addEventListener('change', async (e) => {
@@ -174,15 +183,22 @@ function missing(number) {
     <main class="page">
       ${emptyState({
         iconName: 'box',
-        title: `Kiste ${pad(number)} ist noch nicht angelegt`,
-        text: 'Klebt das Etikett schon auf einer Kiste? Dann erfasse sie jetzt – die Nummer wird übernommen.',
-        action: html`<button class="btn" data-action="create">${icon('plus')} Kiste ${pad(number)} anlegen</button>`,
+        title: `Nummer ${pad(number)} ist noch frei`,
+        text: 'Klebt das Etikett schon auf einer Kiste oder einem großen Einzelstück? Dann erfasse es jetzt – die Nummer wird übernommen.',
+        action: html`
+          <button class="btn" data-action="create" data-kind="box">${icon('box')} Als Kiste erfassen</button>
+          <button class="btn secondary" data-action="create" data-kind="item">${icon('item')} Als Einzelstück erfassen</button>`,
       })}
     </main>`;
 }
 
 // ---------------------------------------------------------------------------
 // Editor
+
+const TEXTS = {
+  box: { create: 'Neue Kiste', edit: 'Kiste bearbeiten', title: 'z. B. Weihnachtsdeko', itemsHead: 'Inhalt', items: 'Ein Gegenstand pro Zeile, z. B.\nLichterkette\nChristbaumkugeln' },
+  item: { create: 'Neues Einzelstück', edit: 'Einzelstück bearbeiten', title: 'z. B. Weihnachtsbaum, Koffer, Kinderwagen', itemsHead: 'Zubehör & Inhalt (optional)', items: 'z. B. Baumständer, Ersatzteile' },
+};
 
 const photoStrip = (draft) => html`
   ${draft.keepPhotos.map(
@@ -197,23 +213,31 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
   const isNew = !box;
   const oldNumber = box?.number;
   const draft = {
+    kind: box?.kind ?? (preset.kind === 'item' ? 'item' : 'box'),
     category: box ? box.category : preset.category ?? null,
     location: box ? box.location : preset.location ?? null,
     keepPhotos: [...(box?.photos ?? [])],
     newPhotos: [],
   };
   const number = box?.number ?? preset.number ?? nextNumber();
+  const t = TEXTS[draft.kind];
 
   const body = html`
     <form class="form" data-form="box" autocomplete="off" onsubmit="return false">
-      <div class="list">
+      <div class="seg" role="group" aria-label="Art">
+        <button type="button" data-kind="box" aria-pressed="${String(draft.kind === 'box')}">${icon('box')} Kiste</button>
+        <button type="button" data-kind="item" aria-pressed="${String(draft.kind === 'item')}">${icon('item')} Einzelstück</button>
+      </div>
+      <p class="section-foot">Einzelstück: etwas Großes ohne Kiste, z. B. Weihnachtsbaum, Koffer oder Kinderwagen.</p>
+
+      <div class="list spaced-sm">
         <label class="cell field">
           <span class="field-label">Nummer</span>
           <input name="number" inputmode="numeric" pattern="[0-9]*" value="${pad(number)}" enterkeyhint="next">
         </label>
         <label class="cell field">
           <span class="field-label">Titel</span>
-          <input name="title" value="${box?.title ?? ''}" placeholder="z. B. Weihnachtsdeko" enterkeyhint="next">
+          <input name="title" value="${box?.title ?? ''}" placeholder="${t.title}" enterkeyhint="next" data-text="title">
         </label>
       </div>
       <p class="section-foot">Die Nummer steht auf dem Etikett und bleibt für immer gleich.</p>
@@ -231,9 +255,9 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
       <h3 class="section-head">Fotos</h3>
       <div class="photo-strip" data-photos>${photoStrip(draft)}</div>
 
-      <h3 class="section-head">Inhalt</h3>
+      <h3 class="section-head" data-text="itemsHead">${t.itemsHead}</h3>
       <div class="list">
-        <textarea name="items" rows="5" placeholder="Ein Gegenstand pro Zeile, z. B.&#10;Lichterkette&#10;Christbaumkugeln">${(box?.items ?? []).join('\n')}</textarea>
+        <textarea name="items" rows="4" placeholder="${t.items}" data-text="items">${(box?.items ?? []).join('\n')}</textarea>
       </div>
       <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile.</p>
 
@@ -244,18 +268,34 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
     </form>`;
 
   const sheet = openSheet({
-    title: isNew ? 'Neue Kiste' : 'Kiste bearbeiten',
+    title: isNew ? t.create : t.edit,
     doneLabel: 'Sichern',
     body,
     onMount(el) {
       const strip = el.querySelector('[data-photos]');
+      const heading = el.closest('.sheet').querySelector('.sheet-head h2');
       const redrawStrip = () => {
         strip.innerHTML = String(photoStrip(draft));
         hydratePhotos(strip);
       };
       hydratePhotos(strip);
 
+      // Switching kind only swaps wording; everything typed so far stays.
+      const applyKind = () => {
+        const texts = TEXTS[draft.kind];
+        el.querySelectorAll('[data-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === draft.kind)));
+        heading.textContent = isNew ? texts.create : texts.edit;
+        el.querySelector('[data-text="title"]').placeholder = texts.title;
+        el.querySelector('[data-text="items"]').placeholder = texts.items;
+        el.querySelector('[data-text="itemsHead"]').textContent = texts.itemsHead;
+      };
+
       el.addEventListener('click', (e) => {
+        const kind = e.target.closest('[data-kind]');
+        if (kind) {
+          draft.kind = kind.dataset.kind;
+          applyKind();
+        }
         const chip = e.target.closest('[data-cat]');
         if (chip) {
           draft.category = draft.category === chip.dataset.cat ? null : chip.dataset.cat;
@@ -297,6 +337,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
     async done(el) {
       const form = el.querySelector('form');
       const data = {
+        kind: draft.kind,
         number: Number(form.number.value.trim()),
         title: form.title.value,
         category: draft.category,
@@ -311,7 +352,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
       const added = draft.newPhotos.length ? await savePhotos(saved.id, draft.newPhotos) : [];
       if (removed.length || added.length) updateBox(saved.id, { photos: [...draft.keepPhotos, ...added] });
 
-      toast(isNew ? `Kiste ${pad(saved.number)} angelegt` : 'Änderungen gesichert');
+      toast(isNew ? `${unitName(saved)} angelegt` : 'Änderungen gesichert');
       if (onSaved) onSaved(saved);
       else if (isNew) navigate(`/kiste/${saved.number}`);
       else if (saved.number !== oldNumber && currentPath() === `/kiste/${oldNumber}`) {
@@ -329,18 +370,17 @@ export const newBox = (preset = {}) => openBoxEditor({ preset });
 // ---------------------------------------------------------------------------
 // Moving
 
-export function moveMessage(box, loc) {
-  const name = `Kiste ${pad(box.number)}`;
-  if (!loc) return `${name} hat keinen festen Platz`;
-  if (loc.away) return `${name} als entnommen markiert`;
-  return `${name} steht jetzt in ${loc.shelf}${loc.level}`;
+export function moveMessage(loc) {
+  if (!loc) return 'Ohne festen Platz';
+  if (loc.away) return 'Als entnommen markiert';
+  return `Nach ${locShort(loc)} umgelagert`;
 }
 
 export function relocate(box, loc) {
   const prev = box.location;
   if (sameLoc(prev, loc)) return false;
   moveBox(box.id, loc);
-  toast(moveMessage(box, loc), 'checkCircle', { label: 'Widerrufen', run: () => moveBox(box.id, prev) });
+  toast(moveMessage(loc), 'checkCircle', { label: 'Widerrufen', run: () => moveBox(box.id, prev) });
   return true;
 }
 
@@ -355,7 +395,7 @@ export function openMoveSheet(box) {
           <span class="cell-sub">Jetzt: ${locLong(box.location)}</span>
         </span>
       </div>
-      <p class="section-foot">Tippe auf den neuen Platz. Die Zahl zeigt, wie viele Kisten dort schon stehen.</p>
+      <p class="section-foot">Tippe auf den neuen Platz. Die Zahl zeigt, wie viel dort schon steht.</p>
       <div class="card pad">${locationGrid(box.location, { exclude: box })}</div>`,
     onMount(el, close) {
       el.addEventListener('click', (e) => {
@@ -371,7 +411,7 @@ export function openMoveSheet(box) {
 export function openPickBoxSheet(loc) {
   const rows = (q) => {
     const boxes = (q ? search(q).map((r) => r.box) : sortedBoxes()).filter((b) => !sameLoc(b.location, loc));
-    if (!boxes.length) return html`<div class="cell muted-cell">Keine passenden Kisten</div>`;
+    if (!boxes.length) return html`<div class="cell muted-cell">Nichts Passendes gefunden</div>`;
     return boxes.map(
       (b) => html`
         <button type="button" class="cell box-row" data-pick="${b.id}">
@@ -381,9 +421,9 @@ export function openPickBoxSheet(loc) {
     );
   };
   return openSheet({
-    title: `Nach ${loc.shelf}${loc.level} stellen`,
+    title: `Nach ${locShort(loc)} stellen`,
     body: html`
-      <label class="search">${icon('search')}<input type="search" placeholder="Kiste suchen" data-pick-q autocomplete="off"></label>
+      <label class="search">${icon('search')}<input type="search" placeholder="Kiste oder Einzelstück suchen" data-pick-q autocomplete="off"></label>
       <div class="list" data-pick-list>${rows('')}</div>`,
     onMount(el, close) {
       const list = el.querySelector('[data-pick-list]');

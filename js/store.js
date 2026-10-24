@@ -2,7 +2,7 @@
 // synchronously, notify subscribers and are persisted to IndexedDB in the
 // background. Photos live in their own object store and are loaded lazily.
 
-import { locKey, normalize, pad } from './format.js';
+import { locKey, normalize, pad, parseLocKey } from './format.js';
 
 const DB_NAME = 'fundort';
 const DB_VERSION = 1;
@@ -29,14 +29,17 @@ export const DEFAULT_CATEGORIES = [
   { id: 'erinnerungen', name: 'Erinnerungen', color: 'purple' },
 ];
 
+export const ZONE_SUGGESTIONS = ['Boden vor den Regalen', 'Unter der Treppe', 'Wandhaken', 'Hinter der Tür', 'Garage', 'Dachboden'];
+
 export const MAX_LEVELS = 12;
 
 const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, printedShelves: false });
 
 export const state = {
-  shelves: [], // { id: 'A', note: '', levels: 5 }
+  shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
+  zones: [], // { id: 'S1', name: 'Unter der Treppe' } – places outside the shelves
   categories: [], // { id, name, color }
-  boxes: [], // { id, number, title, category, location, items[], notes, photos[], createdAt, updatedAt }
+  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, items[], notes, photos[], createdAt, updatedAt }
   meta: freshMeta(),
 };
 
@@ -50,6 +53,8 @@ const promisify = (request) =>
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+
+const done = (tx) => new Promise((resolve, reject) => ((tx.oncomplete = resolve), (tx.onerror = () => reject(tx.error))));
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -75,13 +80,9 @@ function persist(promise) {
   return promise;
 }
 
+const settingsRecord = () => ({ shelves: state.shelves, zones: state.zones, categories: state.categories, meta: state.meta });
 const writeBox = (box) => persist(promisify(os('boxes', 'readwrite').put(box)));
-const writeSettings = () =>
-  persist(
-    promisify(
-      os('meta', 'readwrite').put({ shelves: state.shelves, categories: state.categories, meta: state.meta }, 'settings'),
-    ),
-  );
+const writeSettings = () => persist(promisify(os('meta', 'readwrite').put(settingsRecord(), 'settings')));
 
 const listeners = new Set();
 export function subscribe(fn) {
@@ -101,9 +102,11 @@ export async function init() {
 async function loadAll() {
   const settings = await promisify(os('meta').get('settings'));
   state.shelves = settings?.shelves ?? [];
+  state.zones = settings?.zones ?? [];
   state.categories = settings?.categories ?? [];
   state.meta = { ...freshMeta(), ...settings?.meta };
-  state.boxes = await promisify(os('boxes').getAll());
+  // Entries saved before loose items existed are boxes.
+  state.boxes = (await promisify(os('boxes').getAll())).map((b) => ({ kind: 'box', ...b }));
 }
 
 export const uid = () =>
@@ -118,6 +121,7 @@ export const boxById = (id) => state.boxes.find((b) => b.id === id);
 export const boxByNumber = (n) => state.boxes.find((b) => b.number === n);
 export const categoryById = (id) => state.categories.find((c) => c.id === id);
 export const shelfById = (id) => state.shelves.find((s) => s.id === id);
+export const zoneById = (id) => state.zones.find((z) => z.id === id);
 export const sortedBoxes = () => [...state.boxes].sort(byNumber);
 
 export const boxesAt = (shelf, level = null) =>
@@ -125,6 +129,8 @@ export const boxesAt = (shelf, level = null) =>
     .filter((b) => b.location?.shelf === shelf && (level == null || b.location.level === level))
     .sort(byNumber);
 
+export const boxesInZone = (id) => state.boxes.filter((b) => b.location?.zone === id).sort(byNumber);
+export const boxesOfKind = (kind) => state.boxes.filter((b) => b.kind === kind).sort(byNumber);
 export const unplacedBoxes = () => state.boxes.filter((b) => !b.location).sort(byNumber);
 export const awayBoxes = () => state.boxes.filter((b) => b.location?.away).sort(byNumber);
 export const boxesInCategory = (id) => state.boxes.filter((b) => (b.category ?? null) === id).sort(byNumber);
@@ -138,8 +144,16 @@ export function countAt(loc) {
 
 export const nextNumber = () => state.boxes.reduce((max, b) => Math.max(max, b.number), 0) + 1;
 
+export function locLong(loc) {
+  if (!loc) return 'Ohne festen Platz';
+  if (loc.away) return 'Nicht im Keller';
+  if (loc.zone) return zoneById(loc.zone)?.name || `Stellplatz ${loc.zone}`;
+  return `Regal ${loc.shelf} · Boden ${loc.level}`;
+}
+
 export function isValidLocation(loc) {
   if (!loc || loc.away) return true;
+  if (loc.zone) return !!zoneById(loc.zone);
   const shelf = shelfById(loc.shelf);
   return !!shelf && loc.level >= 1 && loc.level <= shelf.levels;
 }
@@ -152,7 +166,8 @@ export function search(query) {
   for (const box of state.boxes) {
     const title = normalize(box.title);
     const items = box.items.map((it) => [it, normalize(it)]);
-    const other = [box.notes, categoryById(box.category)?.name, locKey(box.location)].map(normalize);
+    const zone = box.location?.zone ? zoneById(box.location.zone)?.name : '';
+    const other = [box.notes, categoryById(box.category)?.name, locKey(box.location), zone].map(normalize);
     const numbers = [String(box.number), pad(box.number)];
     const matchedItems = new Set();
     let score = 0;
@@ -180,11 +195,11 @@ export function search(query) {
 }
 
 // ---------------------------------------------------------------------------
-// Boxes
+// Boxes and loose items
 
 function assertNumber(number, selfId = null) {
   if (!Number.isInteger(number) || number < 1 || number > 9999) {
-    throw new Error('Die Kistennummer muss zwischen 1 und 9999 liegen.');
+    throw new Error('Die Nummer muss zwischen 1 und 9999 liegen.');
   }
   const other = boxByNumber(number);
   if (other && other.id !== selfId) throw new Error(`Die Nummer ${pad(number)} ist schon vergeben.`);
@@ -195,6 +210,7 @@ export function createBox(data) {
   const now = Date.now();
   const box = {
     id: uid(),
+    kind: data.kind === 'item' ? 'item' : 'box',
     number: data.number,
     title: (data.title ?? '').trim(),
     category: data.category ?? null,
@@ -213,7 +229,7 @@ export function createBox(data) {
 
 export function updateBox(id, patch) {
   const box = boxById(id);
-  if (!box) throw new Error('Kiste nicht gefunden.');
+  if (!box) throw new Error('Eintrag nicht gefunden.');
   if ('number' in patch) assertNumber(patch.number, id);
   Object.assign(box, patch, { updatedAt: Date.now() });
   writeBox(box);
@@ -231,8 +247,19 @@ export function deleteBox(id) {
   tx.objectStore('boxes').delete(id);
   for (const pid of box.photos) tx.objectStore('photos').delete(pid);
   box.photos.forEach(forgetPhotoURL);
-  persist(new Promise((res, rej) => ((tx.oncomplete = res), (tx.onerror = () => rej(tx.error)))));
+  persist(done(tx));
   emit();
+}
+
+// Entries whose place disappears lose their location instead of pointing nowhere.
+function unplace(predicate) {
+  for (const box of state.boxes) {
+    if (box.location && predicate(box.location)) {
+      box.location = null;
+      box.updatedAt = Date.now();
+      writeBox(box);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +292,7 @@ export async function savePhotos(boxId, processed) {
   const records = processed.map((p) => ({ id: uid(), boxId, full: p.full, thumb: p.thumb, createdAt: Date.now() }));
   const tx = db.transaction('photos', 'readwrite');
   for (const r of records) tx.objectStore('photos').put(r);
-  await persist(new Promise((res, rej) => ((tx.oncomplete = res), (tx.onerror = () => rej(tx.error)))));
+  await persist(done(tx));
   return records.map((r) => r.id);
 }
 
@@ -276,11 +303,11 @@ export function deletePhotos(ids) {
     tx.objectStore('photos').delete(id);
     forgetPhotoURL(id);
   }
-  persist(new Promise((res, rej) => ((tx.oncomplete = res), (tx.onerror = () => rej(tx.error)))));
+  persist(done(tx));
 }
 
 // ---------------------------------------------------------------------------
-// Shelves & categories
+// Shelves, zones & categories
 
 export const shelfLetter = (i) => {
   let s = '';
@@ -305,7 +332,7 @@ export function updateShelf(id, patch) {
   if ('levels' in patch) {
     const levels = Math.max(1, Math.min(MAX_LEVELS, patch.levels));
     const blocked = state.boxes.find((b) => b.location?.shelf === id && b.location.level > levels);
-    if (blocked) throw new Error(`Auf Boden ${blocked.location.level} stehen noch Kisten. Räume sie zuerst um.`);
+    if (blocked) throw new Error(`Auf Boden ${blocked.location.level} steht noch etwas. Räume es zuerst um.`);
     patch = { ...patch, levels };
   }
   Object.assign(shelf, patch);
@@ -314,14 +341,34 @@ export function updateShelf(id, patch) {
 }
 
 export function removeShelf(id) {
-  for (const box of state.boxes) {
-    if (box.location?.shelf === id) {
-      box.location = null;
-      box.updatedAt = Date.now();
-      writeBox(box);
-    }
-  }
+  unplace((loc) => loc.shelf === id);
   state.shelves = state.shelves.filter((s) => s.id !== id);
+  writeSettings();
+  emit();
+}
+
+export function addZone(name = '') {
+  let n = 1;
+  while (zoneById(`S${n}`)) n++;
+  const zone = { id: `S${n}`, name: name.trim() };
+  state.zones.push(zone);
+  state.zones.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
+  writeSettings();
+  emit();
+  return zone;
+}
+
+export function updateZone(id, patch) {
+  const zone = zoneById(id);
+  if (!zone) return;
+  Object.assign(zone, patch);
+  writeSettings();
+  emit();
+}
+
+export function removeZone(id) {
+  unplace((loc) => loc.zone === id);
+  state.zones = state.zones.filter((z) => z.id !== id);
   writeSettings();
   emit();
 }
@@ -354,8 +401,10 @@ export function setMeta(patch) {
   emit();
 }
 
-export function setupCellar(shelfCount, levels) {
-  state.shelves = Array.from({ length: shelfCount }, (_, i) => ({ id: shelfLetter(i), note: '', levels }));
+// levels: number of levels per shelf, e.g. [5, 3, 4]; zoneNames: free spots.
+export function setupCellar(levels, zoneNames = []) {
+  state.shelves = levels.map((n, i) => ({ id: shelfLetter(i), note: '', levels: n }));
+  state.zones = zoneNames.map((name, i) => ({ id: `S${i + 1}`, name }));
   if (!state.categories.length) state.categories = DEFAULT_CATEGORIES.map((c) => ({ ...c }));
   state.meta.setupDone = true;
   writeSettings();
@@ -377,11 +426,9 @@ export async function exportData() {
   const photos = await promisify(os('photos').getAll());
   return {
     app: 'fundort',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    shelves: state.shelves,
-    categories: state.categories,
-    meta: state.meta,
+    ...settingsRecord(),
     boxes: state.boxes,
     photos: await Promise.all(
       photos.map(async (p) => ({
@@ -395,13 +442,13 @@ export async function exportData() {
   };
 }
 
-async function replaceAll({ shelves, categories, meta, boxes, photos }) {
+async function replaceAll({ shelves, zones = [], categories, meta, boxes, photos }) {
   const tx = db.transaction(['meta', 'boxes', 'photos'], 'readwrite');
   for (const name of ['meta', 'boxes', 'photos']) tx.objectStore(name).clear();
-  tx.objectStore('meta').put({ shelves, categories, meta }, 'settings');
+  tx.objectStore('meta').put({ shelves, zones, categories, meta }, 'settings');
   for (const b of boxes) tx.objectStore('boxes').put(b);
   for (const p of photos) tx.objectStore('photos').put(p);
-  await new Promise((res, rej) => ((tx.oncomplete = res), (tx.onerror = () => rej(tx.error))));
+  await done(tx);
   for (const key of photoURLs.keys()) forgetPhotoURL(key.split(':')[0]);
   await loadAll();
   emit();
@@ -417,17 +464,19 @@ export async function importData(data) {
   );
   await replaceAll({
     shelves: data.shelves,
+    zones: data.zones ?? [],
     categories: data.categories ?? [],
     meta: { ...freshMeta(), ...data.meta, setupDone: true },
-    boxes: data.boxes.map((b) => ({ items: [], photos: [], notes: '', title: '', ...b })),
+    boxes: data.boxes.map((b) => ({ kind: 'box', items: [], photos: [], notes: '', title: '', ...b })),
     photos,
   });
 }
 
-export const resetAll = () => replaceAll({ shelves: [], categories: [], meta: freshMeta(), boxes: [], photos: [] });
+export const resetAll = () => replaceAll({ shelves: [], zones: [], categories: [], meta: freshMeta(), boxes: [], photos: [] });
 
 // ---------------------------------------------------------------------------
 // Demo data, to try the app before the real cellar is done.
+// [number, title, category, place, items, notes, kind]
 
 const DEMO = [
   [1, 'Christbaumschmuck', 'weihnachten', 'A1', 'Christbaumkugeln rot, Christbaumkugeln gold, Lametta, Baumspitze, Strohsterne'],
@@ -438,28 +487,32 @@ const DEMO = [
   [6, 'Winterkleidung Kinder', 'kleidung', 'B1', 'Schneeanzug Gr. 110, Skihandschuhe, Mützen, Thermohosen'],
   [7, 'Babykleidung 62–74', 'kleidung', 'B2', 'Bodys, Strampler, Schlafsack 70 cm, Mützchen', 'Für die Cousine aufheben.'],
   [8, 'Sommersachen', 'kleidung', 'B2', 'Badehosen, Sommerkleider, Sonnenhüte, Flip-Flops, Strandtuch'],
-  [9, 'Skiausrüstung', 'freizeit', 'B4', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
+  [9, 'Skiausrüstung', 'freizeit', 'D5', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
   [10, 'Camping', 'freizeit', 'C4', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
   [11, 'Werkzeug', 'werkzeug', 'C4', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
   [12, 'Kabel & Ladegeräte', 'elektronik', 'C2', 'HDMI-Kabel, USB-C-Ladegeräte, Mehrfachstecker, alte Handys, Router (alt)'],
   [13, 'Lego & Duplo', 'kinder', 'D3', 'Duplo-Steine, Lego City Polizeistation, Lego-Anleitungen'],
   [14, 'Partygeschirr', 'haushalt', 'D2', 'Pappteller, Becher, Servietten, Luftballons, Girlanden'],
-  [15, 'Steuer & Verträge', 'dokumente', 'D1', 'Ordner Steuer 2019–2021, Ordner Steuer 2022–2024, Mietvertrag alt, Garantiebelege'],
+  [15, 'Steuer & Verträge', 'dokumente', 'D6', 'Ordner Steuer 2019–2021, Ordner Steuer 2022–2024, Mietvertrag alt, Garantiebelege'],
   [16, 'Fotoalben', 'erinnerungen', 'D1', 'Fotoalben 1990–2005, Hochzeitsalbum, Kinderzeichnungen'],
   [17, 'Geschenkpapier', 'haushalt', 'none', 'Geschenkpapier, Schleifenband, Geschenktüten, Grußkarten'],
   [18, 'Raclette & Fondue', 'haushalt', 'away', 'Raclette-Grill, Fondue-Set, Fonduegabeln', 'Gerade oben in der Küche.'],
+  [19, 'Weihnachtsbaum (künstlich)', 'weihnachten', '@S2', 'Baumständer, Ersatzzweige', 'In der Originalhülle, 1,80 m.', 'item'],
+  [20, 'Kinderwagen', 'kinder', '@S1', 'Regenschutz, Sonnensegel, Fußsack', '', 'item'],
+  [21, 'Großer Koffer', 'freizeit', 'B3', 'Reisetaschen, Kulturbeutel, Reiseadapter', 'Steht im hohen unteren Fach.', 'item'],
+  [22, 'Schlitten', 'freizeit', '@S3', '', '', 'item'],
 ];
 
 export async function loadDemo() {
   const now = Date.now();
-  const loc = (key) => (key === 'none' ? null : key === 'away' ? { away: true } : { shelf: key[0], level: Number(key.slice(1)) });
-  const boxes = DEMO.map(([number, title, category, where, items, notes = ''], i) => ({
+  const boxes = DEMO.map(([number, title, category, where, items, notes = '', kind = 'box'], i) => ({
     id: uid(),
+    kind,
     number,
     title,
     category,
-    location: loc(where),
-    items: items.split(', '),
+    location: parseLocKey(where),
+    items: items ? items.split(', ') : [],
     notes,
     photos: [],
     createdAt: now - (30 - i) * 86400000,
@@ -468,9 +521,14 @@ export async function loadDemo() {
   await replaceAll({
     shelves: [
       { id: 'A', note: 'Links neben der Tür', levels: 5 },
-      { id: 'B', note: 'Linke Wand', levels: 5 },
+      { id: 'B', note: 'Hohes Regal, linke Wand', levels: 3 },
       { id: 'C', note: 'Rückwand', levels: 4 },
-      { id: 'D', note: 'Rechts unter dem Fenster', levels: 4 },
+      { id: 'D', note: 'Schmales Regal rechts', levels: 6 },
+    ],
+    zones: [
+      { id: 'S1', name: 'Boden vor Regal C' },
+      { id: 'S2', name: 'Unter der Treppe' },
+      { id: 'S3', name: 'Wandhaken neben der Tür' },
     ],
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })),
     meta: { ...freshMeta(), setupDone: true, printedUpTo: 24, printedShelves: true, lastBackup: now },

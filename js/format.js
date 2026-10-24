@@ -2,18 +2,41 @@
 
 export const pad = (n) => String(n).padStart(3, '0');
 
-export const boxTitle = (box) => box.title?.trim() || `Kiste ${pad(box.number)}`;
+export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-// A location is { shelf: 'A', level: 2 }, { away: true } or null (no fixed place).
+// Everything with a number is stored as a "box"; its kind tells a real box
+// from a large item that stands on its own (Christmas tree, suitcase, pram …).
+export const KINDS = {
+  box: { name: 'Kiste', plural: 'Kisten' },
+  item: { name: 'Einzelstück', plural: 'Einzelstücke' },
+};
+export const kindOf = (box) => KINDS[box.kind] ?? KINDS.box;
+export const unitName = (box) => `${kindOf(box).name} ${pad(box.number)}`;
+export const boxTitle = (box) => box.title?.trim() || unitName(box);
+
+// "3 Kisten", "1 Einzelstück" or "3 Kisten, 1 Einzelstück".
+export function unitsLabel(list) {
+  const items = list.filter((b) => b.kind === 'item').length;
+  const boxes = list.length - items;
+  const parts = [];
+  if (boxes || !items) parts.push(plural(boxes, 'Kiste', 'Kisten'));
+  if (items) parts.push(plural(items, 'Einzelstück', 'Einzelstücke'));
+  return parts.join(', ');
+}
+
+// A location is { shelf: 'A', level: 2 } (a shelf level), { zone: 'S1' } (a
+// spot outside the shelves), { away: true } or null (no fixed place).
 export function locKey(loc) {
   if (!loc) return 'none';
   if (loc.away) return 'away';
+  if (loc.zone) return `@${loc.zone}`;
   return `${loc.shelf}${loc.level}`;
 }
 
 export function parseLocKey(key) {
   if (key === 'none') return null;
   if (key === 'away') return { away: true };
+  if (key.startsWith('@')) return { zone: key.slice(1) };
   const m = /^([A-Z]+)(\d+)$/.exec(key);
   return m ? { shelf: m[1], level: Number(m[2]) } : null;
 }
@@ -23,24 +46,17 @@ export const sameLoc = (a, b) => locKey(a) === locKey(b);
 export function locShort(loc) {
   if (!loc) return 'Ohne Platz';
   if (loc.away) return 'Entnommen';
+  if (loc.zone) return loc.zone;
   return `${loc.shelf}${loc.level}`;
-}
-
-export function locLong(loc) {
-  if (!loc) return 'Ohne festen Platz';
-  if (loc.away) return 'Nicht im Keller';
-  return `Regal ${loc.shelf} · Boden ${loc.level}`;
 }
 
 export function normalize(s) {
   return String(s ?? '')
     .toLocaleLowerCase('de')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/ß/g, 'ss');
 }
-
-export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export function splitItems(text) {
   return String(text ?? '')

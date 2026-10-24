@@ -1,17 +1,18 @@
-// Start page: search across all boxes, smart filters and recent boxes.
+// Start page: search across everything, smart filters and recent entries.
 
 import { html, icon } from '../ui.js';
 import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, itemsPreview } from '../components.js';
-import { state, search, sortedBoxes, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount } from '../store.js';
-import { normalize, plural, locShort } from '../format.js';
+import { state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount } from '../store.js';
+import { normalize, plural, locShort, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { presetLabels } from './labels.js';
 
 let query = '';
-let filter = null; // 'all' | 'none' | 'away' | 'cat:<id>' | 'cat:'
+let filter = null; // a FILTERS key, or 'cat:<id>' ('cat:' = without category)
 
 const FILTERS = {
-  all: { label: 'Alle Kisten', icon: 'box', color: 'blue', boxes: sortedBoxes },
+  box: { label: 'Kisten', icon: 'box', color: 'blue', boxes: () => boxesOfKind('box') },
+  item: { label: 'Einzelstücke', icon: 'item', color: 'indigo', boxes: () => boxesOfKind('item') },
   none: { label: 'Ohne Platz', icon: 'tray', color: 'orange', boxes: unplacedBoxes },
   away: { label: 'Entnommen', icon: 'house', color: 'gray', boxes: awayBoxes },
 };
@@ -34,7 +35,7 @@ function searchResults() {
   }
   const terms = normalize(query).split(/\s+/).filter(Boolean);
   return html`
-    <h3 class="section-head">${plural(results.length, 'Kiste', 'Kisten')}</h3>
+    <h3 class="section-head">${unitsLabel(results.map((r) => r.box))}</h3>
     <div class="list">
       ${results.map(({ box, matchedItems }) => {
         // Show matching items first so "where is X" is answered in the list.
@@ -59,9 +60,9 @@ function filtered() {
       <button class="filter-pill" data-action="clear-filter" ${catAttrs(info.color)}>
         <span class="dot"></span>${info.label}${icon('xmark')}
       </button>
-      <span class="filter-count">${plural(boxes.length, 'Kiste', 'Kisten')}</span>
+      <span class="filter-count">${unitsLabel(boxes)}</span>
     </div>
-    ${boxes.length ? html`<div class="list">${boxes.map((b) => boxRow(b))}</div>` : emptyState({ iconName: 'checkCircle', title: 'Nichts zu sehen', text: 'In dieser Auswahl gibt es gerade keine Kisten.' })}`;
+    ${boxes.length ? html`<div class="list">${boxes.map((b) => boxRow(b))}</div>` : emptyState({ iconName: 'checkCircle', title: 'Nichts zu sehen', text: 'In dieser Auswahl gibt es gerade nichts.' })}`;
 }
 
 function setupChecklist() {
@@ -78,9 +79,9 @@ function setupChecklist() {
       <p>In drei Schritten vom Kistenchaos zum Keller, in dem du alles findest.</p>
     </div>
     <div class="list">
-      ${step(printedShelves, 1, 'Regale beschriften', 'Für jeden Boden ein Etikett drucken', 'labels-shelves')}
-      ${step(printedUpTo > 0, 2, 'Kisten-Etiketten drucken', 'Nummern vorab drucken, z. B. 001–008', 'labels-boxes')}
-      ${step(false, 3, 'Erste Kiste erfassen', 'Etikett drauf, Foto, Stichworte, Platz', 'new-box')}
+      ${step(printedShelves, 1, 'Regale & Stellplätze beschriften', 'Für jeden Boden und Stellplatz ein Etikett', 'labels-places')}
+      ${step(printedUpTo > 0, 2, 'Nummern-Etiketten drucken', 'Vorab drucken, z. B. 001–008', 'labels-boxes')}
+      ${step(false, 3, 'Erstes Teil erfassen', 'Etikett drauf, Foto, Stichworte, Platz', 'new-box')}
     </div>
     <a class="btn secondary spaced" href="#/system">${icon('book')} So funktioniert das System</a>`;
 }
@@ -103,7 +104,7 @@ function dashboard() {
           </button>`,
       )}
     </div>
-    <p class="stat-line">${plural(itemCount(), 'Gegenstand', 'Gegenstände')} in ${plural(state.boxes.length, 'Kiste', 'Kisten')} erfasst</p>
+    <p class="stat-line">${plural(itemCount(), 'Gegenstand', 'Gegenstände')} erfasst</p>
 
     ${backupDue
       ? html`
@@ -146,7 +147,7 @@ export default {
         ${largeTitle('Suchen')}
         <form class="search" role="search" data-form="search">
           ${icon('search')}
-          <input type="search" name="q" value="${query}" placeholder="Gegenstand, Kiste oder Platz" aria-label="Suchen"
+          <input type="search" name="q" value="${query}" placeholder="Gegenstand, Nummer oder Platz" aria-label="Suchen"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
           <button type="button" class="search-clear" data-action="clear-search" aria-label="Suche löschen" ${query ? '' : 'hidden'}>${icon('xmark')}</button>
         </form>
@@ -172,7 +173,7 @@ export default {
     root.addEventListener('click', (e) => {
       const step = e.target.closest('[data-action^="labels-"]');
       if (step) {
-        presetLabels(step.dataset.action === 'labels-shelves' ? { mode: 'shelves' } : { mode: 'boxes', source: 'new' });
+        presetLabels(step.dataset.action === 'labels-places' ? { mode: 'places' } : { mode: 'boxes', source: 'new' });
         return navigate('/etiketten');
       }
       const t = e.target.closest('[data-filter], [data-action="clear-filter"], [data-action="clear-search"]');

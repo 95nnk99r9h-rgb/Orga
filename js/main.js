@@ -5,7 +5,7 @@ import { html, raw, icon, toast } from './ui.js';
 import { hydratePhotos } from './components.js';
 import { setRenderer, navigate, switchTab, back, currentPath, depth } from './router.js';
 import home from './views/home.js';
-import { shelvesView, shelfView, levelView } from './views/shelves.js';
+import { shelvesView, shelfView, levelView, zoneView } from './views/shelves.js';
 import { boxView, newBox } from './views/box.js';
 import scan from './views/scan.js';
 import labels from './views/labels.js';
@@ -18,6 +18,7 @@ const ROUTES = [
   ['/regale', shelvesView],
   ['/regal/:shelf', shelfView],
   ['/regal/:shelf/:level', levelView],
+  ['/platz/:zone', zoneView],
   ['/kiste/:number', boxView],
   ['/scan', scan],
   ['/etiketten', labels],
@@ -34,7 +35,7 @@ const ROUTES = [
 
 const TABS = [
   { path: '/', id: 'home', label: 'Suchen', icon: 'search' },
-  { path: '/regale', id: 'shelves', label: 'Regale', icon: 'shelves' },
+  { path: '/regale', id: 'shelves', label: 'Lager', icon: 'shelves' },
   { path: '/scan', id: 'scan', label: 'Scannen', icon: 'scan' },
   { path: '/etiketten', id: 'labels', label: 'Etiketten', icon: 'tag' },
   { path: '/mehr', id: 'more', label: 'Mehr', icon: 'more' },

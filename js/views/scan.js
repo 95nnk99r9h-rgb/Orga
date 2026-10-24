@@ -1,11 +1,11 @@
-// Camera scanner. Scanning a box label selects the box; scanning a shelf
-// label right after moves the selected box there. Scanning an unknown box
-// number offers to create it – the fast path for the big sorting day.
+// Camera scanner. Scanning a numbered label (box or loose item) selects it;
+// scanning a level or zone label right after moves it there. Scanning an
+// unknown number offers to create it – the fast path for the big sorting day.
 
 import { html, icon, promptDialog } from '../ui.js';
-import { badge } from '../components.js';
-import { boxByNumber, boxById, shelfById, boxesAt } from '../store.js';
-import { pad, boxTitle, locLong, plural, sameLoc } from '../format.js';
+import { badge, placeCode } from '../components.js';
+import { boxByNumber, boxById, shelfById, zoneById, boxesAt, boxesInZone, locLong } from '../store.js';
+import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel } from '../format.js';
 import { parseCode } from '../qr.js';
 import { navigate } from '../router.js';
 import { openBoxEditor, relocate } from './box.js';
@@ -21,7 +21,7 @@ function cardFor(state) {
           ${badge(box)}
           <span class="cell-text"><span class="cell-title">${boxTitle(box)}</span><span class="cell-sub">${locLong(box.location)}</span></span>
         </div>
-        <p class="scan-tip">${icon('scan')} Jetzt einen Boden scannen, um die Kiste dort einzulagern.</p>
+        <p class="scan-tip">${icon('scan')} Jetzt einen Boden oder Stellplatz scannen, um sie dort einzulagern.</p>
         <div class="scan-card-actions">
           <button class="pill-btn glass" data-scan="dismiss">Fertig</button>
           <button class="pill-btn tint" data-scan="open-box">Öffnen</button>
@@ -30,40 +30,41 @@ function cardFor(state) {
       return html`
         <div class="scan-card-main">
           <span class="scan-check">${icon('check')}</span>
-          <span class="cell-text"><span class="cell-title">Kiste ${pad(box.number)} eingelagert</span><span class="cell-sub">${locLong(loc)}</span></span>
+          <span class="cell-text"><span class="cell-title">${unitName(box)} eingelagert</span><span class="cell-sub">${locLong(loc)}</span></span>
         </div>
         <div class="scan-card-actions">
-          <button class="pill-btn glass" data-scan="dismiss">Nächste Kiste</button>
+          <button class="pill-btn glass" data-scan="dismiss">Weiter scannen</button>
           <button class="pill-btn tint" data-scan="open-box">Öffnen</button>
         </div>`;
     case 'already':
       return html`
         <div class="scan-card-main">
           <span class="scan-check">${icon('check')}</span>
-          <span class="cell-text"><span class="cell-title">Steht schon hier</span><span class="cell-sub">Kiste ${pad(box.number)} · ${locLong(loc)}</span></span>
+          <span class="cell-text"><span class="cell-title">Steht schon hier</span><span class="cell-sub">${unitName(box)} · ${locLong(loc)}</span></span>
         </div>
         <div class="scan-card-actions"><button class="pill-btn glass" data-scan="dismiss">OK</button></div>`;
     case 'new':
       return html`
         <div class="scan-card-main">
           <span class="badge" data-c="gray" style="--cat: var(--c-gray)">${pad(number)}</span>
-          <span class="cell-text"><span class="cell-title">Neue Kiste ${pad(number)}</span><span class="cell-sub">Noch nicht in der App erfasst</span></span>
+          <span class="cell-text"><span class="cell-title">Nummer ${pad(number)} ist neu</span><span class="cell-sub">Woran klebt das Etikett?</span></span>
         </div>
         <div class="scan-card-actions">
-          <button class="pill-btn glass" data-scan="dismiss">Abbrechen</button>
-          <button class="pill-btn tint" data-scan="create">Erfassen</button>
+          <button class="pill-btn glass" data-scan="create" data-kind="item">${icon('item')} Einzelstück</button>
+          <button class="pill-btn tint" data-scan="create" data-kind="box">${icon('box')} Kiste</button>
         </div>`;
-    case 'level': {
-      const n = boxesAt(loc.shelf, loc.level).length;
+    case 'level':
+    case 'zone': {
+      const here = loc.zone ? boxesInZone(loc.zone) : boxesAt(loc.shelf, loc.level);
       return html`
         <div class="scan-card-main">
-          <span class="loc-code small">${loc.shelf}${loc.level}</span>
-          <span class="cell-text"><span class="cell-title">${locLong(loc)}</span><span class="cell-sub">${plural(n, 'Kiste', 'Kisten')}</span></span>
+          ${placeCode(loc, 'small')}
+          <span class="cell-text"><span class="cell-title">${locLong(loc)}</span><span class="cell-sub">${loc.zone ? `Stellplatz ${loc.zone} · ` : ''}${unitsLabel(here)}</span></span>
         </div>
-        <p class="scan-tip">${icon('scan')} Erst die Kiste scannen, dann den Boden – so wird eingelagert.</p>
+        <p class="scan-tip">${icon('scan')} Erst die Nummer scannen, dann den Platz – so wird eingelagert.</p>
         <div class="scan-card-actions">
           <button class="pill-btn glass" data-scan="dismiss">Fertig</button>
-          <button class="pill-btn tint" data-scan="open-level">Ansehen</button>
+          <button class="pill-btn tint" data-scan="open-place">Ansehen</button>
         </div>`;
     }
     case 'shelf':
@@ -99,7 +100,7 @@ export default {
         <div class="scan-shade" aria-hidden="true"><div class="scan-finder"><i></i><i></i><i></i><i></i></div></div>
         <header class="scan-head">
           <h1>Scannen</h1>
-          <p data-hint>Halte die Kamera auf ein Kisten- oder Regaletikett.</p>
+          <p data-hint>Halte die Kamera auf ein Etikett – an einer Kiste, einem Einzelstück, Boden oder Stellplatz.</p>
         </header>
         <div class="scan-bottom">
           <div class="scan-card" data-card hidden></div>
@@ -147,6 +148,12 @@ export default {
       const code = parseCode(text);
       if (!code) return show({ kind: 'error', title: 'Unbekannter Code', text: 'Das ist kein Fundort-Etikett.' });
 
+      if (code.type === 'zone') {
+        const zone = zoneById(code.zone);
+        if (!zone) return show({ kind: 'error', title: `Stellplatz ${code.zone} fehlt`, text: 'Lege ihn unter „Mehr → Lagerorte“ an.' });
+        return placeScanned({ zone: zone.id });
+      }
+
       if (code.type === 'box') {
         const box = boxByNumber(code.number);
         selected = box?.id ?? null;
@@ -154,15 +161,19 @@ export default {
       }
 
       const shelf = shelfById(code.shelf);
-      if (!shelf) return show({ kind: 'error', title: `Regal ${code.shelf} fehlt`, text: 'Lege es unter „Mehr → Regale“ an.' });
+      if (!shelf) return show({ kind: 'error', title: `Regal ${code.shelf} fehlt`, text: 'Lege es unter „Mehr → Lagerorte“ an.' });
       if (code.type === 'shelf') return show({ kind: 'shelf', shelf });
       if (code.level > shelf.levels) {
         return show({ kind: 'error', title: `Boden ${code.shelf}${code.level} fehlt`, text: `Regal ${shelf.id} hat nur ${plural(shelf.levels, 'Boden', 'Böden')}.` });
       }
 
-      const loc = { shelf: shelf.id, level: code.level };
+      placeScanned({ shelf: shelf.id, level: code.level });
+    }
+
+    // A level or zone label: store the selected entry there, or show the place.
+    function placeScanned(loc) {
       const box = selected && boxById(selected);
-      if (!box) return show({ kind: 'level', loc });
+      if (!box) return show({ kind: loc.zone ? 'zone' : 'level', loc });
       selected = null;
       if (sameLoc(box.location, loc)) return show({ kind: 'already', box, loc });
       relocate(box, loc);
@@ -230,10 +241,10 @@ export default {
         selected = null;
         show(null);
       } else if (action === 'open-box') navigate(`/kiste/${card.box.number}`);
-      else if (action === 'open-level') navigate(`/regal/${card.loc.shelf}/${card.loc.level}`);
+      else if (action === 'open-place') navigate(card.loc.zone ? `/platz/${card.loc.zone}` : `/regal/${card.loc.shelf}/${card.loc.level}`);
       else if (action === 'open-shelf') navigate(`/regal/${card.shelf.id}`);
       else if (action === 'manual') {
-        const value = await promptDialog({ title: 'Kistennummer', message: 'Die Nummer vom Etikett, z. B. 42.', inputmode: 'numeric', placeholder: '042', confirm: 'Suchen' });
+        const value = await promptDialog({ title: 'Nummer eingeben', message: 'Die Nummer vom Etikett, z. B. 42.', inputmode: 'numeric', placeholder: '042', confirm: 'Suchen' });
         const n = parseInt(value ?? '', 10);
         if (n > 0) {
           last = { text: '', at: 0 };
@@ -243,7 +254,7 @@ export default {
         // Pause the camera while the form (and maybe the photo camera) is open.
         pause();
         const sheet = openBoxEditor({
-          preset: { number: card.number },
+          preset: { number: card.number, kind: e.target.closest('[data-scan]').dataset.kind },
           onSaved: (box) => {
             const placed = box.location && !box.location.away;
             selected = placed ? null : box.id;

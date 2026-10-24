@@ -3,10 +3,11 @@
 import { html, icon, openSheet, confirmDialog, alertDialog, toast, shareOrDownload, pickFile } from '../ui.js';
 import { navBar, largeTitle, catAttrs, stepper } from '../components.js';
 import {
-  state, COLORS, MAX_LEVELS, addShelf, updateShelf, removeShelf, boxesAt, saveCategory, removeCategory,
-  categoryById, boxesInCategory, exportData, importData, resetAll, loadDemo, setMeta,
+  state, COLORS, MAX_LEVELS, ZONE_SUGGESTIONS, addShelf, updateShelf, removeShelf, addZone, updateZone, removeZone,
+  boxesAt, boxesInZone, saveCategory, removeCategory, categoryById, boxesInCategory, exportData, importData, resetAll,
+  loadDemo, setMeta,
 } from '../store.js';
-import { plural, dateLabel } from '../format.js';
+import { dateLabel, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 
 const row = ({ iconName, color, title, detail = '', href = null, action = null, cls = '' }) => {
@@ -39,10 +40,9 @@ async function doImport() {
   } catch {
     return alertDialog({ title: 'Datei nicht lesbar', message: 'Bitte wähle eine Fundort-Backup-Datei (.json).' });
   }
-  const n = data?.boxes?.length ?? 0;
   if (!(await confirmDialog({
     title: 'Backup wiederherstellen?',
-    message: `Das Backup enthält ${plural(n, 'Kiste', 'Kisten')}. Alle aktuellen Daten auf diesem Gerät werden ersetzt.`,
+    message: `Das Backup enthält ${unitsLabel(data.boxes ?? [])}. Alle aktuellen Daten auf diesem Gerät werden ersetzt.`,
     confirm: 'Ersetzen',
     destructive: true,
   }))) return;
@@ -65,7 +65,7 @@ export const moreView = {
         ${largeTitle('Mehr')}
         <h3 class="section-head">Keller</h3>
         <div class="list">
-          ${row({ iconName: 'shelves', color: 'blue', title: 'Regale & Böden', detail: plural(state.shelves.length, 'Regal', 'Regale'), href: '#/mehr/regale' })}
+          ${row({ iconName: 'shelves', color: 'blue', title: 'Lagerorte', detail: `${state.shelves.length} + ${state.zones.length}`, href: '#/mehr/regale' })}
           ${row({ iconName: 'circles', color: 'orange', title: 'Kategorien', detail: String(state.categories.length), href: '#/mehr/kategorien' })}
         </div>
 
@@ -100,7 +100,7 @@ export const moreView = {
       }
       if (action === 'reset' && (await confirmDialog({
         title: 'Alle Daten löschen?',
-        message: 'Kisten, Fotos, Regale und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
+        message: 'Kisten, Einzelstücke, Fotos, Lagerorte und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
         confirm: 'Alles löschen',
         destructive: true,
       }))) {
@@ -115,16 +115,17 @@ export const moreView = {
 
 export const shelfSettingsView = {
   tab: 'more',
-  title: 'Regale & Böden',
+  title: 'Lagerorte',
   render() {
+    const unused = ZONE_SUGGESTIONS.filter((name) => !state.zones.some((z) => z.name === name));
     return html`
-      ${navBar({ title: 'Regale & Böden', back: '/mehr' })}
+      ${navBar({ title: 'Lagerorte', back: '/mehr' })}
       <main class="page">
-        ${largeTitle('Regale & Böden')}
-        <p class="lead">Regale bekommen Buchstaben – am besten links neben der Tür beginnend, einmal rundherum. Böden werden von oben nach unten gezählt.</p>
+        ${largeTitle('Lagerorte')}
+        <p class="lead">Regale bekommen Buchstaben – am besten links neben der Tür beginnend, einmal rundherum. Jedes Regal hat so viele Böden, wie es eben hat; gezählt wird von oben nach unten.</p>
         ${state.shelves.map(
           (s) => html`
-            <h3 class="section-head">Regal ${s.id} · ${plural(boxesAt(s.id).length, 'Kiste', 'Kisten')}</h3>
+            <h3 class="section-head">Regal ${s.id} · ${unitsLabel(boxesAt(s.id))}</h3>
             <div class="list">
               <label class="cell field">
                 <span class="field-label">Ort</span>
@@ -137,16 +138,39 @@ export const shelfSettingsView = {
               <button class="cell destructive" data-remove="${s.id}">Regal ${s.id} entfernen</button>
             </div>`,
         )}
-        <button class="btn secondary spaced" data-action="add">${icon('plus')} Regal hinzufügen</button>
+        <button class="btn secondary" data-action="add">${icon('plus')} Regal hinzufügen</button>
+
+        <h2 class="title2">Stellplätze</h2>
+        <p class="lead">Für alles, was nicht im Regal steht: Großes auf dem Boden, Wandhaken, Ecken – oder Orte außerhalb des Kellers wie Garage und Dachboden. Sie heißen S1, S2 …</p>
+        <div class="list">
+          ${state.zones.map(
+            (z) => html`
+              <div class="cell zone-edit">
+                <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id} ansehen">${z.id}</a>
+                <input data-zone="${z.id}" value="${z.name}" placeholder="z. B. unter der Treppe" enterkeyhint="done" aria-label="Name von ${z.id}">
+                <span class="cell-detail small">${boxesInZone(z.id).length || ''}</span>
+                <button class="icon-btn danger" data-remove-zone="${z.id}" aria-label="Stellplatz ${z.id} entfernen">${icon('trash')}</button>
+              </div>`,
+          )}
+          <button class="cell tint-text" data-action="add-zone">${icon('plus', 'add-icon')} <span class="cell-title">Stellplatz hinzufügen</span></button>
+        </div>
+        ${unused.length
+          ? html`
+            <p class="section-foot">Vorschläge</p>
+            <div class="chips suggestions">
+              ${unused.map((name) => html`<button type="button" class="chip add" data-suggest="${name}">${icon('plus')}${name}</button>`)}
+            </div>`
+          : ''}
       </main>`;
   },
   mount(root) {
     root.addEventListener('change', (e) => {
-      const id = e.target.dataset.note;
-      if (id) updateShelf(id, { note: e.target.value.trim() });
+      const { note, zone } = e.target.dataset;
+      if (note) updateShelf(note, { note: e.target.value.trim() });
+      if (zone) updateZone(zone, { name: e.target.value.trim() });
     });
     root.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && e.target.dataset.note) e.target.blur();
+      if (e.key === 'Enter' && (e.target.dataset.note || e.target.dataset.zone)) e.target.blur();
     });
     root.addEventListener('click', async (e) => {
       const step = e.target.closest('[data-step]');
@@ -165,10 +189,32 @@ export const shelfSettingsView = {
         const n = boxesAt(remove).length;
         if (await confirmDialog({
           title: `Regal ${remove} entfernen?`,
-          message: n ? `${plural(n, 'Kiste', 'Kisten')} verlieren ihren Platz und landen unter „Ohne Platz“.` : '',
+          message: n ? `${unitsLabel(boxesAt(remove))} verlieren ihren Platz und landen unter „Ohne Platz“.` : '',
           confirm: 'Entfernen',
           destructive: true,
         })) removeShelf(remove);
+        return;
+      }
+      const removeZ = e.target.closest('[data-remove-zone]')?.dataset.removeZone;
+      if (removeZ) {
+        const here = boxesInZone(removeZ);
+        if (await confirmDialog({
+          title: `Stellplatz ${removeZ} entfernen?`,
+          message: here.length ? `${unitsLabel(here)} verlieren ihren Platz und landen unter „Ohne Platz“.` : '',
+          confirm: 'Entfernen',
+          destructive: true,
+        })) removeZone(removeZ);
+        return;
+      }
+      const suggest = e.target.closest('[data-suggest]')?.dataset.suggest;
+      if (suggest) {
+        const zone = addZone(suggest);
+        return toast(`${zone.id} · ${zone.name} angelegt`);
+      }
+      if (e.target.closest('[data-action="add-zone"]')) {
+        const zone = addZone();
+        // The page re-rendered on change, so look the new field up afresh.
+        document.querySelector(`[data-zone="${zone.id}"]`)?.focus();
         return;
       }
       if (e.target.closest('[data-action="add"]')) {
@@ -208,10 +254,10 @@ function openCategoryEditor(cat = null) {
           el.querySelectorAll('[data-color]').forEach((b) => b.setAttribute('aria-pressed', String(b === sw)));
         }
         if (e.target.closest('[data-delete]')) {
-          const n = boxesInCategory(cat.id).length;
+          const tagged = boxesInCategory(cat.id);
           if (await confirmDialog({
             title: `„${cat.name}“ löschen?`,
-            message: n ? `${plural(n, 'Kiste', 'Kisten')} behalten ihren Inhalt, aber keine Kategorie.` : '',
+            message: tagged.length ? `${unitsLabel(tagged)} behalten ihren Inhalt, aber keine Kategorie.` : '',
             confirm: 'Löschen',
             destructive: true,
           })) {

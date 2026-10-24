@@ -704,7 +704,7 @@ button.cell:active {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
 
@@ -2790,4 +2790,244 @@ textarea {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* ------------------------------------------------- Loose items and zones */
+
+.badge.item {
+  border-radius: 50%;
+}
+
+.box-chip.item {
+  border-radius: 999px;
+}
+
+.loc-code.zone,
+.zone-code {
+  background: color-mix(in srgb, var(--c-green) 17%, transparent);
+  color: color-mix(in srgb, var(--c-green) 72%, var(--label));
+}
+
+.zone-code {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font: 700 16px/1 var(--font-round);
+}
+
+.zone-code .i {
+  width: 22px;
+  height: 22px;
+}
+
+.zone-code.sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.zone-code.lg {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  font-size: 22px;
+}
+
+.shelf-head.static {
+  cursor: default;
+}
+
+.zone-row {
+  align-items: center;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.zone-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zone-name {
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.level-code.zone {
+  color: color-mix(in srgb, var(--c-green) 72%, var(--label));
+}
+
+.scan .loc-code.zone {
+  background: rgba(48, 209, 88, 0.22);
+  color: #30d158;
+}
+
+.lg-label {
+  margin: 14px 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.lg-scroll + .lg-label {
+  margin-top: 16px;
+}
+
+.locgrid > .lg-label:first-child {
+  margin-top: 0;
+}
+
+.lg-zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.lg-zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--fill-3);
+  text-align: left;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.lg-zone:active {
+  transform: scale(0.97);
+}
+
+.lg-zone-code {
+  font: 700 15px/1 var(--font-round);
+  color: color-mix(in srgb, var(--c-green) 72%, var(--label));
+}
+
+.lg-zone-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lg-zone small {
+  font-size: 11px;
+  color: var(--label-2);
+}
+
+.lg-zone[aria-pressed="true"] {
+  background: var(--tint);
+  color: #fff;
+}
+
+.lg-zone[aria-pressed="true"] .lg-zone-code,
+.lg-zone[aria-pressed="true"] small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.zone-edit {
+  --sep-inset: 60px;
+}
+
+.zone-edit input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: 17px;
+  color: var(--label);
+}
+
+.zone-edit input::placeholder {
+  color: var(--label-3);
+}
+
+.cell-detail.small {
+  font-size: 15px;
+}
+
+.icon-btn.danger {
+  color: var(--c-red);
+  margin-right: -4px;
+}
+
+.icon-btn.danger .i {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+.suggestions {
+  margin-top: 8px;
+}
+
+.chip.add,
+.zone-chip {
+  color: var(--tint);
+}
+
+.chip .i {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
+}
+
+.zone-chip[aria-pressed="true"] {
+  background: var(--c-green);
+  color: #fff;
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.seg .i {
+  width: 18px;
+  height: 18px;
+}
+
+.spaced-sm {
+  margin-top: 16px;
+}
+
+.empty .btn + .btn {
+  margin-top: 10px;
+}
+
+.scan-card-actions .pill-btn .i {
+  width: 18px;
+  height: 18px;
+}
+
+.lbl-zone {
+  padding-left: 7mm;
+}
+
+.lbl-zone .lbl-kicker {
+  color: #1d1d1f;
+}
+
+.fmt-small .lbl-zone {
+  padding-left: 3.5mm;
+}
+
+.fmt-small .lbl-zone .lbl-num {
+  font-size: 14mm;
 }

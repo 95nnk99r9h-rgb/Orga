@@ -1,26 +1,27 @@
-// Printable label sheets (A4) for boxes and shelf levels.
-// Box labels carry only number, QR code and (optionally) category and title –
-// what is inside lives in the app, so a label never has to be rewritten.
+// Printable label sheets (A4) for numbered entries and for places.
+// Number labels carry only number, QR code and (optionally) category and
+// title – what is inside lives in the app, so a label never needs rewriting.
 
 import { html, raw, icon, openSheet } from '../ui.js';
 import { navBar, largeTitle, toggleRow, stepper, badge } from '../components.js';
 import { state, sortedBoxes, categoryById, nextNumber, setMeta, COLOR_HEX } from '../store.js';
-import { pad, boxTitle, plural } from '../format.js';
-import { qrSVG, boxCode, levelCode, shelfCode } from '../qr.js';
+import { pad, boxTitle, kindOf, plural, unitsLabel } from '../format.js';
+import { qrSVG, boxCode, levelCode, shelfCode, zoneCode } from '../qr.js';
 import { refresh } from '../router.js';
 
 const FORMATS = {
   large: { label: 'Groß', size: '105 × 74 mm', perPage: 8, hint: '8 pro A4-Bogen · gut lesbar aus 3 m' },
-  small: { label: 'Klein', size: '70 × 37 mm', perPage: 24, hint: '24 pro A4-Bogen · für kleine Kisten' },
+  small: { label: 'Klein', size: '70 × 37 mm', perPage: 24, hint: '24 pro A4-Bogen · auch als Anhänger' },
 };
 
 const opts = {
-  mode: 'boxes', // 'boxes' | 'shelves'
+  mode: 'boxes', // 'boxes' (number labels) | 'places' (levels, shelf signs, zones)
   source: 'new', // 'new' | 'existing'
   from: null, // first number for new labels; null = next free
   sheets: 1,
-  ids: null, // Set of box ids to print, null = all
+  ids: null, // Set of entry ids to print, null = all
   shelves: null, // Set of shelf ids, null = all
+  zones: null, // Set of zone ids, null = all
   signs: true,
   format: 'large',
   titles: false,
@@ -28,26 +29,29 @@ const opts = {
   skip: 0,
 };
 
-export function presetLabels({ mode, source, ids, shelves }) {
+export function presetLabels({ mode, source, ids, shelves, zones, signs }) {
   opts.mode = mode;
   if (source) opts.source = source;
   if (ids) opts.ids = new Set(ids);
   if (shelves) opts.shelves = new Set(shelves);
+  if (zones) opts.zones = new Set(zones);
+  if (signs != null) opts.signs = signs;
 }
 
 const fromNumber = () => opts.from ?? Math.max(nextNumber(), state.meta.printedUpTo + 1);
 const selectedBoxes = () => sortedBoxes().filter((b) => !opts.ids || opts.ids.has(b.id));
 const selectedShelves = () => state.shelves.filter((s) => !opts.shelves || opts.shelves.has(s.id));
+const selectedZones = () => state.zones.filter((z) => !opts.zones || opts.zones.has(z.id));
 const newCount = () => Math.max(0, opts.sheets * FORMATS[opts.format].perPage - opts.skip);
 
 // ---------------------------------------------------------------------------
 // Label markup (sizes in mm, see css "Labels")
 
-function boxLabel({ number, title = '', catName = '', color = null }) {
+function numberLabel({ number, kicker, title = '', color = null }) {
   return html`
     <div class="lbl lbl-box ${number > 999 ? 'n4' : ''}" style="--cat:${color ? COLOR_HEX[color] : '#1d1d1f'}">
       <span class="lbl-stripe"></span>
-      <span class="lbl-kicker">${catName || 'Kiste'}</span>
+      <span class="lbl-kicker">${kicker}</span>
       <span class="lbl-num">${pad(number)}</span>
       <span class="lbl-title">${title}</span>
       <span class="lbl-qr">${raw(qrSVG(boxCode(number)))}</span>
@@ -55,13 +59,14 @@ function boxLabel({ number, title = '', catName = '', color = null }) {
 }
 
 function levelLabel(shelf, level) {
-  const where = level === 1 ? 'oberster Boden' : level === shelf.levels ? 'unterster Boden' : `${level}. Boden von oben`;
+  const n = shelf.levels;
+  const where = n === 1 ? 'einziger Boden' : level === 1 ? `oberster von ${n}` : level === n ? `unterster von ${n}` : `${level}. von ${n}, von oben`;
   return html`
     <div class="lbl lbl-level">
       <span class="lbl-kicker">Regal ${shelf.id} · Boden ${level}</span>
       <span class="lbl-num">${shelf.id}${level}</span>
       <span class="lbl-title">${where}</span>
-      <span class="lbl-diagram">${Array.from({ length: shelf.levels }, (_, i) => html`<i class="${i + 1 === level ? 'on' : ''}"></i>`)}</span>
+      <span class="lbl-diagram">${Array.from({ length: n }, (_, i) => html`<i class="${i + 1 === level ? 'on' : ''}"></i>`)}</span>
       <span class="lbl-qr">${raw(qrSVG(levelCode(shelf.id, level)))}</span>
     </div>`;
 }
@@ -76,20 +81,33 @@ function shelfSign(shelf) {
     </div>`;
 }
 
+function zoneLabel(zone) {
+  return html`
+    <div class="lbl lbl-zone">
+      <span class="lbl-kicker">Stellplatz</span>
+      <span class="lbl-num">${zone.id}</span>
+      <span class="lbl-title">${zone.name}</span>
+      <span class="lbl-qr">${raw(qrSVG(zoneCode(zone.id)))}</span>
+    </div>`;
+}
+
 function collect() {
-  if (opts.mode === 'shelves') {
-    return selectedShelves().flatMap((s) => [
-      ...(opts.signs ? [shelfSign(s)] : []),
-      ...Array.from({ length: s.levels }, (_, i) => levelLabel(s, i + 1)),
-    ]);
+  if (opts.mode === 'places') {
+    return [
+      ...selectedShelves().flatMap((s) => [
+        ...(opts.signs ? [shelfSign(s)] : []),
+        ...Array.from({ length: s.levels }, (_, i) => levelLabel(s, i + 1)),
+      ]),
+      ...selectedZones().map(zoneLabel),
+    ];
   }
   if (opts.source === 'new') {
     const from = fromNumber();
-    return Array.from({ length: newCount() }, (_, i) => boxLabel({ number: from + i }));
+    return Array.from({ length: newCount() }, (_, i) => numberLabel({ number: from + i, kicker: 'Nummer' }));
   }
   return selectedBoxes().map((b) => {
     const cat = categoryById(b.category);
-    return boxLabel({ number: b.number, title: opts.titles ? b.title : '', catName: cat?.name, color: cat?.color });
+    return numberLabel({ number: b.number, kicker: cat?.name ?? kindOf(b).name, title: opts.titles ? b.title : '', color: cat?.color });
   });
 }
 
@@ -113,6 +131,13 @@ const radioRow = ({ attr, value, current, title, sub, disabled = false, lead = '
     ${current === value ? icon('check', 'check') : ''}
   </button>`;
 
+const checkRow = ({ attr, id, checked, lead, title, sub }) => html`
+  <label class="cell toggle-row">
+    ${lead}
+    <span class="cell-text"><span class="cell-title">${title}</span><span class="cell-sub">${sub}</span></span>
+    <input type="checkbox" class="check" ${raw(`${attr}="${id}"`)} ${checked ? raw('checked') : ''} aria-label="${title}">
+  </label>`;
+
 function boxOptions() {
   const total = state.boxes.length;
   const from = fromNumber();
@@ -120,10 +145,10 @@ function boxOptions() {
   return html`
     <h3 class="section-head">Was drucken?</h3>
     <div class="list">
-      ${radioRow({ attr: 'data-source', value: 'new', current: opts.source, title: 'Neue Nummern', sub: 'Vorab drucken und beim Einräumen aufkleben' })}
+      ${radioRow({ attr: 'data-source', value: 'new', current: opts.source, title: 'Neue Nummern', sub: 'Vorab drucken, beim Einräumen aufkleben' })}
       ${radioRow({
-        attr: 'data-source', value: 'existing', current: opts.source, title: 'Erfasste Kisten',
-        sub: total ? `${plural(total, 'Kiste', 'Kisten')} in der App` : 'Noch keine Kisten erfasst', disabled: !total,
+        attr: 'data-source', value: 'existing', current: opts.source, title: 'Bereits erfasst',
+        sub: total ? `${unitsLabel(state.boxes)} in der App` : 'Noch nichts erfasst', disabled: !total,
       })}
     </div>
     ${opts.source === 'new'
@@ -135,7 +160,7 @@ function boxOptions() {
           </label>
           <div class="cell"><span class="cell-title grow">Bögen</span>${stepper({ name: 'sheets', value: opts.sheets, min: 1, max: 10 })}</div>
         </div>
-        <p class="section-foot">${n ? `Druckt ${pad(from)} bis ${pad(from + n - 1)}. Danach geht es automatisch bei ${pad(from + n)} weiter.` : 'Keine freien Felder auf dem Bogen.'}</p>`
+        <p class="section-foot">${n ? `Druckt ${pad(from)} bis ${pad(from + n - 1)}. Danach geht es automatisch bei ${pad(from + n)} weiter. Die Etiketten passen für Kisten und Einzelstücke.` : 'Keine freien Felder auf dem Bogen.'}</p>`
       : html`
         <div class="list">
           <button type="button" class="cell" data-action="choose-boxes">
@@ -146,23 +171,38 @@ function boxOptions() {
         </div>`}`;
 }
 
-function shelfOptions() {
+function placeOptions() {
   return html`
-    <h3 class="section-head">Regale</h3>
-    <div class="list">
-      ${state.shelves.map(
-        (s) => html`
-          <label class="cell toggle-row">
-            <span class="shelf-letter sm">${s.id}</span>
-            <span class="cell-text"><span class="cell-title">Regal ${s.id}</span><span class="cell-sub">${s.note || plural(s.levels, 'Boden', 'Böden')}</span></span>
-            <input type="checkbox" class="check" data-shelf="${s.id}" ${!opts.shelves || opts.shelves.has(s.id) ? raw('checked') : ''} aria-label="Regal ${s.id}">
-          </label>`,
-      )}
-    </div>
-    <div class="list">
-      ${toggleRow({ name: 'signs', label: 'Regal-Schilder', sub: 'Zusätzlich ein großes Schild pro Regal', checked: opts.signs })}
-    </div>
-    <p class="section-foot">Pro Boden ein Etikett an die Vorderkante kleben. Boden 1 ist immer der oberste.</p>`;
+    ${state.shelves.length
+      ? html`
+        <h3 class="section-head">Regale</h3>
+        <div class="list">
+          ${state.shelves.map((s) =>
+            checkRow({
+              attr: 'data-shelf', id: s.id, checked: !opts.shelves || opts.shelves.has(s.id),
+              lead: html`<span class="shelf-letter sm">${s.id}</span>`,
+              title: `Regal ${s.id}`, sub: `${s.note ? `${s.note} · ` : ''}${plural(s.levels, 'Boden', 'Böden')}`,
+            }),
+          )}
+        </div>
+        <div class="list">
+          ${toggleRow({ name: 'signs', label: 'Regal-Schilder', sub: 'Zusätzlich ein großes Schild pro Regal', checked: opts.signs })}
+        </div>`
+      : ''}
+    ${state.zones.length
+      ? html`
+        <h3 class="section-head">Stellplätze</h3>
+        <div class="list">
+          ${state.zones.map((z) =>
+            checkRow({
+              attr: 'data-zone', id: z.id, checked: !opts.zones || opts.zones.has(z.id),
+              lead: html`<span class="zone-code sm">${z.id}</span>`,
+              title: z.name || `Stellplatz ${z.id}`, sub: `Stellplatz ${z.id}`,
+            }),
+          )}
+        </div>`
+      : ''}
+    <p class="section-foot">Boden-Etiketten mittig an die Vorderkante kleben (Boden 1 ist immer der oberste). Stellplatz-Etiketten an die Wand oder auf den Boden daneben.</p>`;
 }
 
 function chooseBoxes() {
@@ -177,7 +217,7 @@ function chooseBoxes() {
         </button>`,
     );
   openSheet({
-    title: 'Kisten auswählen',
+    title: 'Auswahl',
     body: html`
       <div class="sheet-tools">
         <button type="button" class="pill-btn tinted" data-all>Alle</button>
@@ -219,7 +259,7 @@ function print() {
         opts.from = null;
         setMeta({ printedUpTo: Math.max(state.meta.printedUpTo, printedNew) });
       }
-      if (opts.mode === 'shelves') setMeta({ printedShelves: true });
+      if (opts.mode === 'places') setMeta({ printedShelves: true });
     },
     { once: true },
   );
@@ -242,11 +282,11 @@ export default {
       <main class="page">
         ${largeTitle('Etiketten', 'Drucken, ausschneiden, aufkleben.')}
         <div class="seg" role="group" aria-label="Etikettenart">
-          <button type="button" data-mode="boxes" aria-pressed="${String(opts.mode === 'boxes')}">Kisten</button>
-          <button type="button" data-mode="shelves" aria-pressed="${String(opts.mode === 'shelves')}">Regale &amp; Böden</button>
+          <button type="button" data-mode="boxes" aria-pressed="${String(opts.mode === 'boxes')}">Nummern</button>
+          <button type="button" data-mode="places" aria-pressed="${String(opts.mode === 'places')}">Regale &amp; Plätze</button>
         </div>
 
-        ${opts.mode === 'boxes' ? boxOptions() : shelfOptions()}
+        ${opts.mode === 'boxes' ? boxOptions() : placeOptions()}
 
         <h3 class="section-head">Format</h3>
         <div class="list">
@@ -293,16 +333,21 @@ export default {
       refresh();
     });
 
+    // Toggling one shelf or zone: a full selection is stored as null ("all").
+    const toggle = (current, all, id, on) => {
+      const set = new Set(current().map((x) => x.id));
+      on ? set.add(id) : set.delete(id);
+      return set.size === all.length ? null : set;
+    };
+
     root.addEventListener('change', (e) => {
       const t = e.target;
       if (t.name === 'from') {
         const n = parseInt(t.value, 10);
         opts.from = Number.isInteger(n) && n > 0 ? Math.min(n, 9999) : null;
-      } else if (t.dataset.shelf) {
-        const set = new Set(selectedShelves().map((s) => s.id));
-        t.checked ? set.add(t.dataset.shelf) : set.delete(t.dataset.shelf);
-        opts.shelves = set.size === state.shelves.length ? null : set;
-      } else if (t.name in opts) opts[t.name] = t.checked;
+      } else if (t.dataset.shelf) opts.shelves = toggle(selectedShelves, state.shelves, t.dataset.shelf, t.checked);
+      else if (t.dataset.zone) opts.zones = toggle(selectedZones, state.zones, t.dataset.zone, t.checked);
+      else if (t.name in opts) opts[t.name] = t.checked;
       else return;
       refresh();
     });
@@ -323,4 +368,3 @@ export default {
     return () => ro.disconnect();
   },
 };
-

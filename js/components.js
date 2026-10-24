@@ -21,13 +21,24 @@ export const largeTitle = (title, sub = '') =>
   html`<div class="large-title"><h1 data-title-anchor>${title}</h1>${sub ? html`<p>${sub}</p>` : ''}</div>`;
 
 export const newBoxButton = () =>
-  html`<button class="circle-btn glass" data-action="new-box" aria-label="Neue Kiste">${icon('plus')}</button>`;
+  html`<button class="circle-btn glass" data-action="new-box" aria-label="Neu erfassen">${icon('plus')}</button>`;
 
 export const colorOf = (box) => categoryById(box.category)?.color ?? 'gray';
 export const catAttrs = (color) => raw(`style="--cat: var(--c-${esc(color ?? 'gray')})" data-c="${esc(color ?? 'gray')}"`);
 
+// Boxes are rounded squares, loose items are circles.
 export const badge = (box, cls = '') =>
-  html`<span class="badge ${cls}" ${catAttrs(colorOf(box))}>${pad(box.number)}</span>`;
+  html`<span class="badge ${box.kind === 'item' ? 'item' : ''} ${cls}" ${catAttrs(colorOf(box))}>${pad(box.number)}</span>`;
+
+export const boxChip = (box) =>
+  html`<a class="box-chip ${box.kind === 'item' ? 'item' : ''}" href="#/kiste/${box.number}" ${catAttrs(colorOf(box))} title="${boxTitle(box)}">${pad(box.number)}</a>`;
+
+// Square showing where something is: "B3" for a shelf level, "S1" for a zone.
+export function placeCode(loc, cls = '') {
+  if (loc?.zone) return html`<span class="loc-code zone ${cls}">${loc.zone}</span>`;
+  if (loc && !loc.away) return html`<span class="loc-code ${cls}">${loc.shelf}${loc.level}</span>`;
+  return html`<span class="loc-code muted ${cls}">${icon(loc ? 'house' : 'tray')}</span>`;
+}
 
 export function itemsPreview(items, max = 3) {
   if (!items.length) return 'Noch kein Inhalt erfasst';
@@ -85,34 +96,57 @@ export function shelfDiagram(levels, active = null) {
   )}</span>`;
 }
 
-// Grid picker: columns are shelves, rows are levels (top to bottom).
+// Place picker: a grid of shelves (columns) × levels (rows, top to bottom),
+// shelves may differ in height; zones and the two special states below.
 export function locationGrid(selected, { exclude = null } = {}) {
   const sel = locKey(selected);
-  const maxLevels = Math.max(1, ...state.shelves.map((s) => s.levels));
   const count = (loc) => countAt(loc) - (exclude && locKey(exclude.location) === locKey(loc) ? 1 : 0);
-  const cells = [];
-  cells.push(html`<span></span>`);
-  for (const s of state.shelves) cells.push(html`<span class="lg-head">${s.id}</span>`);
-  for (let level = 1; level <= maxLevels; level++) {
-    cells.push(html`<span class="lg-rowhead">${level}</span>`);
-    for (const s of state.shelves) {
-      if (level > s.levels) {
-        cells.push(html`<span class="lg-void"></span>`);
-        continue;
+
+  let grid = '';
+  if (state.shelves.length) {
+    const maxLevels = Math.max(...state.shelves.map((s) => s.levels));
+    const cells = [html`<span></span>`, ...state.shelves.map((s) => html`<span class="lg-head">${s.id}</span>`)];
+    for (let level = 1; level <= maxLevels; level++) {
+      cells.push(html`<span class="lg-rowhead">${level}</span>`);
+      for (const s of state.shelves) {
+        if (level > s.levels) {
+          cells.push(html`<span class="lg-void"></span>`);
+          continue;
+        }
+        const key = `${s.id}${level}`;
+        const n = count({ shelf: s.id, level });
+        cells.push(html`
+          <button type="button" class="lg-cell" data-loc="${key}" aria-pressed="${String(sel === key)}" aria-label="Regal ${s.id}, Boden ${level}">
+            <span>${key}</span><small>${n || '–'}</small>
+          </button>`);
       }
-      const key = `${s.id}${level}`;
-      const n = count({ shelf: s.id, level });
-      cells.push(html`
-        <button type="button" class="lg-cell" data-loc="${key}" aria-pressed="${String(sel === key)}" aria-label="Regal ${s.id}, Boden ${level}">
-          <span>${key}</span><small>${n ? n : '–'}</small>
-        </button>`);
     }
-  }
-  return html`
-    <div class="locgrid">
+    grid = html`
       <div class="lg-scroll">
         <div class="lg-grid" style="--cols:${state.shelves.length}">${cells}</div>
-      </div>
+      </div>`;
+  }
+
+  const zones = state.zones.length
+    ? html`
+      <div class="lg-label">Stellplätze</div>
+      <div class="lg-zones">
+        ${state.zones.map((z) => {
+          const n = count({ zone: z.id });
+          return html`
+            <button type="button" class="lg-zone" data-loc="@${z.id}" aria-pressed="${String(sel === `@${z.id}`)}" aria-label="Stellplatz ${z.id} ${z.name}">
+              <span class="lg-zone-code">${z.id}</span>
+              <span class="lg-zone-name">${z.name || 'Stellplatz'}</span>
+              <small>${n || '–'}</small>
+            </button>`;
+        })}
+      </div>`
+    : '';
+
+  return html`
+    <div class="locgrid">
+      ${grid}
+      ${zones}
       <div class="lg-extra">
         <button type="button" class="lg-opt" data-loc="none" aria-pressed="${String(sel === 'none')}">${icon('tray')} Ohne festen Platz</button>
         <button type="button" class="lg-opt" data-loc="away" aria-pressed="${String(sel === 'away')}">${icon('house')} Nicht im Keller</button>
