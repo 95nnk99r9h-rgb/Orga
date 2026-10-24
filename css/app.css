@@ -847,24 +847,8 @@ button.cell:active {
   margin-right: auto;
 }
 
-.intro-card {
-  padding: 18px 18px 16px;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--c-blue) 14%, var(--bg-elev)), var(--bg-elev) 70%);
-}
 
-.intro-card h2 {
-  margin: 0 0 4px;
-  font-size: 22px;
-  font-weight: 700;
-}
 
-.intro-card p {
-  margin: 0;
-  color: var(--label-2);
-  font-size: 15px;
-  line-height: 1.4;
-}
 
 .step {
   --sep-inset: 60px;
@@ -882,10 +866,6 @@ button.cell:active {
   font: 700 16px/1 var(--font-round);
 }
 
-.step.done .step-num {
-  background: var(--c-green);
-  color: #fff;
-}
 
 .step-num .i {
   width: 16px;
@@ -893,9 +873,6 @@ button.cell:active {
   stroke-width: 3;
 }
 
-.step.done .cell-title {
-  color: var(--label-2);
-}
 
 /* ------------------------------------------------------------- Shelf views */
 

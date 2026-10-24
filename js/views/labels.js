@@ -259,7 +259,6 @@ function print() {
         opts.from = null;
         setMeta({ printedUpTo: Math.max(state.meta.printedUpTo, printedNew) });
       }
-      if (opts.mode === 'places') setMeta({ printedShelves: true });
     },
     { once: true },
   );

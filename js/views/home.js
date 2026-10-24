@@ -8,8 +8,6 @@ import {
   state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount,
 } from '../store.js';
 import { normalize, plural, locShort, unitsLabel } from '../format.js';
-import { navigate } from '../router.js';
-import { presetLabels } from './labels.js';
 import { shelfCard, zoneCard, bindRows } from './shelves.js';
 import { installCard, showInstallHint, install, dismissInstallHint } from '../install.js';
 
@@ -51,32 +49,6 @@ function filterChips() {
     </div>`;
 }
 
-function setupChecklist() {
-  const { printedShelves, printedUpTo } = state.meta;
-  const step = (done, n, title, text, action) => html`
-    <button class="cell step ${done ? 'done' : ''}" data-action="${action}">
-      <span class="step-num">${done ? icon('check') : n}</span>
-      <span class="cell-text"><span class="cell-title">${title}</span><span class="cell-sub">${text}</span></span>
-      ${icon('chevron', 'chev')}
-    </button>`;
-  return html`
-    <div class="card intro-card">
-      <h2>Los geht’s</h2>
-      <p>In drei Schritten vom Kistenchaos zum Keller, in dem du alles findest.</p>
-    </div>
-    <div class="list">
-      ${step(printedShelves, 1, 'Regale & Stellplätze beschriften', 'Für jeden Boden und Stellplatz ein Etikett', 'labels-places')}
-      ${step(printedUpTo > 0, 2, 'Nummern-Etiketten drucken', 'Vorab drucken, z. B. 001–008', 'labels-boxes')}
-      ${step(false, 3, 'Erstes Teil erfassen', 'Etikett drauf, Foto, Stichworte, Platz', 'new-box')}
-      <a class="cell step" href="#/system">
-        <span class="step-num">${icon('book')}</span>
-        <span class="cell-text"><span class="cell-title">So funktioniert das System</span><span class="cell-sub">Vier Regeln, eine Checkliste</span></span>
-        ${icon('chevron', 'chev')}
-      </a>
-    </div>
-    <h3 class="section-head">Dein Lager</h3>`;
-}
-
 function overview() {
   const unplaced = unplacedBoxes();
   const away = awayBoxes();
@@ -84,7 +56,7 @@ function overview() {
     state.boxes.length >= 5 && (!state.meta.lastBackup || Date.now() - state.meta.lastBackup > 30 * 86400000);
   return html`
     ${showInstallHint() ? installCard() : ''}
-    ${state.boxes.length ? filterChips() : setupChecklist()}
+    ${state.boxes.length ? filterChips() : ''}
     ${backupDue
       ? html`
         <a class="card notice spaced-bottom" href="#/mehr">
@@ -215,10 +187,6 @@ export default {
 
     root.addEventListener('click', (e) => {
       const action = e.target.closest('[data-action]')?.dataset.action;
-      if (action === 'labels-places' || action === 'labels-boxes') {
-        presetLabels(action === 'labels-places' ? { mode: 'places' } : { mode: 'boxes', source: 'new' });
-        return navigate('/etiketten');
-      }
       if (action === 'install') return install();
       if (action === 'dismiss-install') {
         dismissInstallHint();

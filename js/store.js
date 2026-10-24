@@ -33,7 +33,7 @@ export const ZONE_SUGGESTIONS = ['Boden vor den Regalen', 'Unter der Treppe', 'W
 
 export const MAX_LEVELS = 12;
 
-const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, printedShelves: false });
+const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0 });
 
 export const state = {
   shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
@@ -531,7 +531,7 @@ export async function loadDemo() {
       { id: 'S3', name: 'Wandhaken neben der Tür' },
     ],
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })),
-    meta: { ...freshMeta(), setupDone: true, printedUpTo: 24, printedShelves: true, lastBackup: now },
+    meta: { ...freshMeta(), setupDone: true, printedUpTo: 24, lastBackup: now },
     boxes,
     photos: [],
   });
