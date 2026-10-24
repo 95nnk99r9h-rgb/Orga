@@ -9,6 +9,7 @@ import {
 } from '../store.js';
 import { dateLabel, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
+import { canInstall, install } from '../install.js';
 
 const row = ({ iconName, color, title, detail = '', href = null, action = null, cls = '' }) => {
   const inner = html`
@@ -69,6 +70,13 @@ export const moreView = {
           ${row({ iconName: 'circles', color: 'orange', title: 'Kategorien', detail: String(state.categories.length), href: '#/mehr/kategorien' })}
         </div>
 
+        ${canInstall()
+          ? html`
+            <div class="list install-row">
+              ${row({ iconName: 'homescreen', color: 'blue', title: 'Als App installieren', action: 'install' })}
+            </div>`
+          : ''}
+
         <h3 class="section-head">Anleitung</h3>
         <div class="list">
           ${row({ iconName: 'book', color: 'green', title: 'Das Fundort-System', href: '#/system' })}
@@ -91,6 +99,7 @@ export const moreView = {
   mount(root) {
     root.addEventListener('click', async (e) => {
       const action = e.target.closest('[data-action]')?.dataset.action;
+      if (action === 'install') install();
       if (action === 'export') doExport();
       if (action === 'import') doImport();
       if (action === 'demo') {

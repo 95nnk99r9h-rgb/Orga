@@ -1,9 +1,9 @@
-// Storage overview ("Lager"): shelves with their levels, zones outside the
-// shelves, and detail pages for a shelf, a level and a zone.
+// Storage building blocks: shelf and zone cards for the start page, and the
+// detail pages for a shelf, a level and a zone.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, newBoxButton, boxRow, boxChip, emptyState, shelfDiagram, catAttrs, itemsPreview } from '../components.js';
-import { state, shelfById, zoneById, boxesAt, boxesInZone, unplacedBoxes, awayBoxes } from '../store.js';
+import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs, itemsPreview } from '../components.js';
+import { state, shelfById, zoneById, boxesAt, boxesInZone } from '../store.js';
 import { plural, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { newBox, openPickBoxSheet } from './box.js';
@@ -20,7 +20,7 @@ function levelRow(shelf, level) {
     </div>`;
 }
 
-function shelfCard(shelf) {
+export function shelfCard(shelf) {
   const boxes = boxesAt(shelf.id);
   return html`
     <section class="card shelf-card">
@@ -36,7 +36,7 @@ function shelfCard(shelf) {
     </section>`;
 }
 
-function zoneCard() {
+export function zoneCard() {
   if (!state.zones.length) {
     return html`
       <a class="card notice" href="#/mehr/regale">
@@ -72,7 +72,7 @@ function zoneCard() {
 }
 
 // Tapping anywhere on a row (outside its chips) opens the level or zone.
-function bindRows(root) {
+export function bindRows(root) {
   root.addEventListener('click', (e) => {
     if (e.target.closest('a, button')) return;
     const row = e.target.closest('[data-href]');
@@ -80,35 +80,8 @@ function bindRows(root) {
   });
 }
 
-export const shelvesView = {
-  tab: 'shelves',
-  title: 'Lager',
-  render() {
-    const unplaced = unplacedBoxes();
-    const away = awayBoxes();
-    return html`
-      ${navBar({ title: 'Lager', right: newBoxButton() })}
-      <main class="page">
-        ${largeTitle('Lager', `${plural(state.shelves.length, 'Regal', 'Regale')} · ${plural(state.zones.length, 'Stellplatz', 'Stellplätze')}`)}
-        ${state.shelves.length
-          ? state.shelves.map(shelfCard)
-          : emptyState({
-              iconName: 'shelves',
-              title: 'Noch keine Regale',
-              text: 'Lege fest, welche Regale und Stellplätze dein Keller hat.',
-              action: html`<a class="btn" href="#/mehr/regale">Lagerorte einrichten</a>`,
-            })}
-        ${zoneCard()}
-        ${unplaced.length ? html`<h3 class="section-head">Ohne festen Platz</h3><div class="list">${unplaced.map((b) => boxRow(b))}</div>` : ''}
-        ${away.length ? html`<h3 class="section-head">Nicht im Keller</h3><div class="list">${away.map((b) => boxRow(b))}</div>` : ''}
-        <a class="btn secondary spaced" href="#/mehr/regale">${icon('pencil')} Regale &amp; Stellplätze bearbeiten</a>
-      </main>`;
-  },
-  mount: bindRows,
-};
-
 const notFound = (what) => html`
-  ${navBar({ back: '/regale' })}
+  ${navBar({ back: '/' })}
   <main class="page">${emptyState({ iconName: 'shelves', title: `${what} gibt es nicht`, text: 'Prüfe die Lagerorte unter „Mehr“.' })}</main>`;
 
 const actionRow = (action, color, iconName, title) => html`
@@ -140,7 +113,7 @@ export const shelfView = {
     const shelf = shelfById(id);
     if (!shelf) return notFound(`Regal ${id}`);
     return html`
-      ${navBar({ title: `Regal ${id}`, back: '/regale' })}
+      ${navBar({ title: `Regal ${id}`, back: '/' })}
       <main class="page">
         ${largeTitle(`Regal ${id}`, `${shelf.note ? `${shelf.note} · ` : ''}${plural(shelf.levels, 'Boden', 'Böden')}`)}
         ${Array.from({ length: shelf.levels }, (_, i) => {
@@ -199,7 +172,7 @@ export const zoneView = {
     if (!zone) return notFound(`Stellplatz ${id}`);
     const boxes = boxesInZone(id);
     return html`
-      ${navBar({ title: zone.name || `Stellplatz ${id}`, back: '/regale' })}
+      ${navBar({ title: zone.name || `Stellplatz ${id}`, back: '/' })}
       <main class="page">
         <section class="level-hero">
           <span class="zone-code lg">${id}</span>

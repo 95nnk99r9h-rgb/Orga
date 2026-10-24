@@ -3031,3 +3031,173 @@ textarea {
 .fmt-small .lbl-zone .lbl-num {
   font-size: 14mm;
 }
+
+/* ------------------------------------------------------ Start page search */
+
+.search-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.search-row .search {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.search-cancel {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--tint);
+  font-size: 17px;
+  white-space: nowrap;
+  transition: max-width 0.3s var(--ease), opacity 0.2s, margin 0.3s var(--ease);
+}
+
+.search-row.active .search-cancel {
+  max-width: 110px;
+  margin-left: 12px;
+  opacity: 1;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 calc(var(--gutter) * -1) 16px;
+  padding: 0 var(--gutter) 2px;
+  scrollbar-width: none;
+}
+
+.filter-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.15s;
+}
+
+.fchip:active {
+  transform: scale(0.96);
+}
+
+.fchip .i {
+  width: 17px;
+  height: 17px;
+  color: var(--cat);
+  stroke-width: 2;
+}
+
+.fchip b {
+  font-weight: 600;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.fchip-sep {
+  flex: none;
+  width: 1px;
+  margin: 7px 2px;
+  background: var(--sep);
+}
+
+.spaced-bottom {
+  margin: 0 0 16px;
+}
+
+/* ------------------------------------------------------------- Install */
+
+.install-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px 12px 12px;
+  margin-bottom: 16px;
+}
+
+.install-card img {
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  flex: none;
+}
+
+.install-card .icon-btn {
+  margin: 0;
+}
+
+.pill-btn.small {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+.install-row {
+  margin-top: 20px;
+}
+
+.install-hero {
+  text-align: center;
+  padding: 4px 8px 18px;
+}
+
+.install-hero img {
+  width: 84px;
+  height: 84px;
+  border-radius: 19px;
+  box-shadow: 0 10px 26px rgba(0, 90, 220, 0.25);
+}
+
+.install-hero h3 {
+  margin: 14px 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.install-hero p {
+  margin: 0;
+  color: var(--label-2);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.i.inline {
+  width: 18px;
+  height: 18px;
+  vertical-align: -3px;
+  color: var(--tint);
+}
+
+.step-num .i {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
+}
+
+/* --------------------------------------------------- Native feel on iOS */
+
+button,
+.tab,
+.fchip,
+.chip,
+.box-chip,
+.level-num,
+.tabbar {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}

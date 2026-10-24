@@ -33,8 +33,8 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 
 ## Was die App kann
 
-- **Suchen** – Volltextsuche über Titel, Inhalt, Notizen, Kategorie, Nummer und Platz (auch Stellplatz-Namen wie „Treppe“). Findet Wortteile („licht“ → „Lichterkette“, „Kürbis-Lichter“) und markiert die Treffer.
-- **Lager** – alle Regale mit ihren Böden (unterschiedlich hohe Regale werden genau so dargestellt) und alle Stellplätze, jeweils mit farbigen Nummern-Chips. Eigene Seiten pro Regal, Boden und Stellplatz.
+- **Lager (Startseite)** – alle Regale mit ihren Böden (unterschiedlich hohe Regale werden genau so dargestellt) und alle Stellplätze, jeweils mit farbigen Nummern-Chips. Eigene Seiten pro Regal, Boden und Stellplatz. Darunter Filter-Chips für Kisten, Einzelstücke, „Ohne Platz“, „Entnommen“ und Kategorien.
+- **Suche oben auf der Startseite** – Volltextsuche über Titel, Inhalt, Notizen, Kategorie, Nummer und Platz (auch Stellplatz-Namen wie „Treppe“). Findet Wortteile („licht“ → „Lichterkette“, „Kürbis-Lichter“) und markiert die Treffer. Wie unter iOS: Antippen zeigt die zuletzt geänderten Einträge, „Abbrechen“ führt zurück zum Lager.
 - **Kisten und Einzelstücke** – Nummer, Titel, Kategorie, Platz, Fotos, Inhalt bzw. Zubehör und Notizen. Einzelstücke sind runde, Kisten eckige Nummern-Symbole.
 - **Scannen** – Kamera-Scanner in der App:
   - Nummern-Etikett scannen → Kiste bzw. Einzelstück wird angezeigt
@@ -52,21 +52,26 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 
 ## Auf dem iPhone installieren
 
-Die App ist eine Progressive Web App (PWA): Sie läuft im Browser, lässt sich aber wie eine echte App auf den Home-Bildschirm legen – ohne App Store und ohne Xcode.
+Fundort ist eine Progressive Web App (PWA): Sie läuft im Browser, lässt sich aber wie eine echte App auf den Home-Bildschirm legen – ohne App Store und ohne Xcode. Für iOS ist alles vorbereitet: App-Symbol, Vollbild ohne Safari-Leisten, Startbildschirme für alle aktuellen iPhones, Offline-Betrieb und eine Installationsanleitung direkt in der App.
 
-**1. Online stellen (einmalig)** – z. B. kostenlos mit GitHub Pages:
-1. Im Repository *Settings → Pages* öffnen.
-2. Bei *Source* „Deploy from a branch“ wählen, den Branch mit der App und den Ordner `/ (root)` auswählen, speichern.
-3. Nach ein bis zwei Minuten ist die App unter `https://<benutzername>.github.io/Orga/` erreichbar.
+**1. Online stellen** – GitHub Pages ist für dieses Repository bereits aktiv. Unter *Settings → Pages* muss als Quelle „Deploy from a branch“ mit diesem Branch und dem Ordner `/ (root)` eingestellt sein. Dann ist die App erreichbar unter:
 
-> GitHub Pages für private Repositories braucht einen kostenpflichtigen GitHub-Plan. Alternativ funktioniert jeder statische Hoster (z. B. Netlify, Cloudflare Pages) – einfach den Ordner hochladen. Wichtig ist **HTTPS**, sonst funktioniert die Kamera nicht.
+> **https://95nnk99r9h-rgb.github.io/Orga/**
 
-**2. Auf dem iPhone:** Adresse in **Safari** öffnen → Teilen-Symbol → **„Zum Home-Bildschirm“**. Beim ersten Scannen den Kamerazugriff erlauben.
+(Nach jedem Push dauert es ein bis zwei Minuten, bis die neue Version online ist. Wichtig ist **HTTPS**, sonst funktioniert die Kamera nicht – GitHub Pages erfüllt das.)
 
-**3. Loslegen:** Beim ersten Start legst du fest, wie viele Regale es gibt, wie viele Böden jedes einzelne hat und welche Stellplätze es außerhalb der Regale gibt. Mit „Erst mit Beispieldaten ausprobieren“ kannst du alles gefahrlos testen und danach unter *Mehr → Alle Daten löschen* neu beginnen.
+**2. Auf dem iPhone:** Adresse in **Safari** öffnen. Die App zeigt oben einen Hinweis „Fundort als App“ – „Laden“ erklärt die Schritte:
+1. Auf **Teilen** tippen (bei neueren iOS-Versionen zuerst auf „•••“).
+2. **„Zum Home-Bildschirm“** wählen.
+3. **„Hinzufügen“** tippen.
+
+Die Anleitung findest du auch jederzeit unter *Mehr → Als App installieren*. Auf Android/Chrome erscheint stattdessen der eingebaute Installationsdialog.
+
+**3. Loslegen:** Fundort vom Home-Bildschirm starten (nicht aus Safari – siehe „Gut zu wissen“). Beim ersten Start legst du fest, wie viele Regale es gibt, wie viele Böden jedes einzelne hat und welche Stellplätze es außerhalb der Regale gibt. Mit „Erst mit Beispieldaten ausprobieren“ kannst du alles gefahrlos testen und danach unter *Mehr → Alle Daten löschen* neu beginnen.
 
 ## Gut zu wissen
 
+- **Erst installieren, dann erfassen.** Safari und die installierte App speichern ihre Daten auf dem iPhone getrennt. Wer schon in Safari erfasst hat, nimmt die Daten per Backup mit (*Mehr → Backup erstellen*, in der App *Backup wiederherstellen*).
 - **Daten liegen nur auf dem Gerät.** Es gibt (noch) keine Synchronisierung. Für mehrere Personen: auf einem Gerät pflegen und das Backup teilen, oder ein „Keller-Handy“ bestimmen. Regelmäßig *Mehr → Backup erstellen* – die App erinnert daran, wenn das letzte Backup älter als 30 Tage ist.
 - **Mit der App scannen, nicht mit der Kamera-App.** Auf dem iPhone haben die installierte App und Safari getrennte Speicher. Scannt man ein Etikett mit der normalen Kamera, öffnet sich Safari ohne deine Daten. Die QR-Codes funktionieren trotzdem dauerhaft, auch wenn die App einmal umzieht – der Scanner liest nur Nummer, Boden bzw. Stellplatz aus.
 - **Drucken:** Im Druckdialog „Tatsächliche Größe“ / 100 % wählen und Seitenränder/Skalierung ausschalten. Am bequemsten druckt man vom Computer oder aus Safari.
@@ -94,7 +99,9 @@ js/ui.js              HTML-Templates, Icons, Sheets, Dialoge, Toasts
 js/components.js      Wiederverwendbare Bausteine (Badges, Zeilen, Platz-Raster …)
 js/qr.js              QR-Codes erzeugen und Etiketten-Inhalte lesen
 js/scan-worker.js     QR-Erkennung im Hintergrund-Thread
-js/views/*.js         Seiten: Suchen, Lager, Kiste, Scannen, Etiketten, Mehr, System, Willkommen
+js/install.js         „Zum Home-Bildschirm“: Anleitung für iOS, Installationsdialog für Android
+js/views/*.js         Seiten: Lager mit Suche (Start), Regal/Boden/Stellplatz, Kiste, Scannen, Etiketten, Mehr, System, Willkommen
+icons/                App-Symbole und iOS-Startbildschirme (icons/splash)
 vendor/               qrcode-generator (MIT), jsQR (Apache 2.0)
 docs/                 Keller-Handbuch und Vorschaubild
 ```

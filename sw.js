@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
 
-const VERSION = 'fundort-v2';
+const VERSION = 'fundort-v3';
 const ASSETS = [
   './',
   'index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   'js/photos.js',
   'js/qr.js',
   'js/scan-worker.js',
+  'js/install.js',
   'js/views/home.js',
   'js/views/shelves.js',
   'js/views/box.js',
@@ -29,6 +30,7 @@ const ASSETS = [
   'icons/icon.svg',
   'icons/icon-180.png',
   'icons/icon-192.png',
+  'icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

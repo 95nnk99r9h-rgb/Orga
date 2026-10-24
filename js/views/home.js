@@ -1,14 +1,21 @@
-// Start page: search across everything, smart filters and recent entries.
+// Start page: the storage overview ("Lager") with search on top. Typing
+// replaces the overview with results; an active but empty search field shows
+// recently changed entries and a cancel button, like search on iOS.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, itemsPreview } from '../components.js';
-import { state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount } from '../store.js';
+import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, itemsPreview, hydratePhotos } from '../components.js';
+import {
+  state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, itemCount,
+} from '../store.js';
 import { normalize, plural, locShort, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { presetLabels } from './labels.js';
+import { shelfCard, zoneCard, bindRows } from './shelves.js';
+import { installCard, showInstallHint, install, dismissInstallHint } from '../install.js';
 
 let query = '';
 let filter = null; // a FILTERS key, or 'cat:<id>' ('cat:' = without category)
+let searching = false; // search field active: recents instead of the overview
 
 const FILTERS = {
   box: { label: 'Kisten', icon: 'box', color: 'blue', boxes: () => boxesOfKind('box') },
@@ -23,6 +30,89 @@ function filterInfo(f) {
   const cat = categoryById(id);
   return { label: cat?.name ?? 'Ohne Kategorie', color: cat?.color ?? 'gray', boxes: () => boxesInCategory(id) };
 }
+
+// ---------------------------------------------------------------------------
+// Overview
+
+function filterChips() {
+  const kinds = Object.entries(FILTERS)
+    .map(([key, f]) => ({ key, n: f.boxes().length, label: f.label, color: f.color, mark: icon(f.icon) }))
+    .filter((c) => c.n);
+  const cats = [...state.categories.map((c) => c.id), null]
+    .map((id) => {
+      const cat = categoryById(id);
+      return { key: `cat:${id ?? ''}`, n: boxesInCategory(id).length, label: cat?.name ?? 'Ohne Kategorie', color: cat?.color ?? 'gray', mark: html`<span class="dot"></span>` };
+    })
+    .filter((c) => c.n);
+  const chip = (c) => html`<button class="fchip" data-filter="${c.key}" ${catAttrs(c.color)}>${c.mark}${c.label}<b>${c.n}</b></button>`;
+  return html`
+    <div class="filter-chips" aria-label="Filter">
+      ${kinds.map(chip)}${kinds.length && cats.length ? html`<span class="fchip-sep"></span>` : ''}${cats.map(chip)}
+    </div>`;
+}
+
+function setupChecklist() {
+  const { printedShelves, printedUpTo } = state.meta;
+  const step = (done, n, title, text, action) => html`
+    <button class="cell step ${done ? 'done' : ''}" data-action="${action}">
+      <span class="step-num">${done ? icon('check') : n}</span>
+      <span class="cell-text"><span class="cell-title">${title}</span><span class="cell-sub">${text}</span></span>
+      ${icon('chevron', 'chev')}
+    </button>`;
+  return html`
+    <div class="card intro-card">
+      <h2>Los geht’s</h2>
+      <p>In drei Schritten vom Kistenchaos zum Keller, in dem du alles findest.</p>
+    </div>
+    <div class="list">
+      ${step(printedShelves, 1, 'Regale & Stellplätze beschriften', 'Für jeden Boden und Stellplatz ein Etikett', 'labels-places')}
+      ${step(printedUpTo > 0, 2, 'Nummern-Etiketten drucken', 'Vorab drucken, z. B. 001–008', 'labels-boxes')}
+      ${step(false, 3, 'Erstes Teil erfassen', 'Etikett drauf, Foto, Stichworte, Platz', 'new-box')}
+      <a class="cell step" href="#/system">
+        <span class="step-num">${icon('book')}</span>
+        <span class="cell-text"><span class="cell-title">So funktioniert das System</span><span class="cell-sub">Vier Regeln, eine Checkliste</span></span>
+        ${icon('chevron', 'chev')}
+      </a>
+    </div>
+    <h3 class="section-head">Dein Lager</h3>`;
+}
+
+function overview() {
+  const unplaced = unplacedBoxes();
+  const away = awayBoxes();
+  const backupDue =
+    state.boxes.length >= 5 && (!state.meta.lastBackup || Date.now() - state.meta.lastBackup > 30 * 86400000);
+  return html`
+    ${showInstallHint() ? installCard() : ''}
+    ${state.boxes.length ? filterChips() : setupChecklist()}
+    ${backupDue
+      ? html`
+        <a class="card notice spaced-bottom" href="#/mehr">
+          <span class="icon-tile" ${catAttrs('orange')}>${icon('warning')}</span>
+          <span class="cell-text">
+            <span class="cell-title">Zeit für ein Backup</span>
+            <span class="cell-sub">Deine Daten liegen nur auf diesem Gerät.</span>
+          </span>
+          ${icon('chevron', 'chev')}
+        </a>`
+      : ''}
+    ${state.shelves.length
+      ? state.shelves.map(shelfCard)
+      : emptyState({
+          iconName: 'shelves',
+          title: 'Noch keine Regale',
+          text: 'Lege fest, welche Regale und Stellplätze dein Keller hat.',
+          action: html`<a class="btn" href="#/mehr/regale">Lagerorte einrichten</a>`,
+        })}
+    ${zoneCard()}
+    ${unplaced.length ? html`<h3 class="section-head">Ohne festen Platz</h3><div class="list">${unplaced.map((b) => boxRow(b))}</div>` : ''}
+    ${away.length ? html`<h3 class="section-head">Nicht im Keller</h3><div class="list">${away.map((b) => boxRow(b))}</div>` : ''}
+    <a class="btn secondary spaced" href="#/mehr/regale">${icon('pencil')} Regale &amp; Stellplätze bearbeiten</a>
+    ${state.boxes.length ? html`<p class="stat-line">${unitsLabel(state.boxes)} · ${plural(itemCount(), 'Gegenstand', 'Gegenstände')}</p>` : ''}`;
+}
+
+// ---------------------------------------------------------------------------
+// Search and filters
 
 function searchResults() {
   const results = search(query);
@@ -52,6 +142,16 @@ function searchResults() {
     </div>`;
 }
 
+function recents() {
+  if (!state.boxes.length) {
+    return emptyState({ iconName: 'search', title: 'Noch nichts erfasst', text: 'Sobald etwas erfasst ist, findest du es hier per Stichwort.' });
+  }
+  return html`
+    <h3 class="section-head">Zuletzt geändert</h3>
+    <div class="list">${recentBoxes(6).map((b) => boxRow(b))}</div>
+    <p class="section-foot">Suche nach Gegenständen, Titeln, Nummern („42“), Plätzen („B3“, „Treppe“) oder Kategorien.</p>`;
+}
+
 function filtered() {
   const info = filterInfo(filter);
   const boxes = info.boxes();
@@ -65,103 +165,45 @@ function filtered() {
     ${boxes.length ? html`<div class="list">${boxes.map((b) => boxRow(b))}</div>` : emptyState({ iconName: 'checkCircle', title: 'Nichts zu sehen', text: 'In dieser Auswahl gibt es gerade nichts.' })}`;
 }
 
-function setupChecklist() {
-  const { printedShelves, printedUpTo } = state.meta;
-  const step = (done, n, title, text, action) => html`
-    <button class="cell step ${done ? 'done' : ''}" data-action="${action}">
-      <span class="step-num">${done ? icon('check') : n}</span>
-      <span class="cell-text"><span class="cell-title">${title}</span><span class="cell-sub">${text}</span></span>
-      ${icon('chevron', 'chev')}
-    </button>`;
-  return html`
-    <div class="card intro-card">
-      <h2>Los geht’s</h2>
-      <p>In drei Schritten vom Kistenchaos zum Keller, in dem du alles findest.</p>
-    </div>
-    <div class="list">
-      ${step(printedShelves, 1, 'Regale & Stellplätze beschriften', 'Für jeden Boden und Stellplatz ein Etikett', 'labels-places')}
-      ${step(printedUpTo > 0, 2, 'Nummern-Etiketten drucken', 'Vorab drucken, z. B. 001–008', 'labels-boxes')}
-      ${step(false, 3, 'Erstes Teil erfassen', 'Etikett drauf, Foto, Stichworte, Platz', 'new-box')}
-    </div>
-    <a class="btn secondary spaced" href="#/system">${icon('book')} So funktioniert das System</a>`;
-}
-
-function dashboard() {
-  if (!state.boxes.length) return setupChecklist();
-  const cats = [...state.categories.map((c) => c.id), null]
-    .map((id) => ({ id, n: boxesInCategory(id).length }))
-    .filter((c) => c.n);
-  const backupDue =
-    state.boxes.length >= 5 && (!state.meta.lastBackup || Date.now() - state.meta.lastBackup > 30 * 86400000);
-  return html`
-    <div class="tiles">
-      ${Object.entries(FILTERS).map(
-        ([key, f]) => html`
-          <button class="tile" data-filter="${key}" ${catAttrs(f.color)}>
-            <span class="tile-icon">${icon(f.icon)}</span>
-            <span class="tile-count">${f.boxes().length}</span>
-            <span class="tile-label">${f.label}</span>
-          </button>`,
-      )}
-    </div>
-    <p class="stat-line">${plural(itemCount(), 'Gegenstand', 'Gegenstände')} erfasst</p>
-
-    ${backupDue
-      ? html`
-        <a class="card notice" href="#/mehr">
-          <span class="icon-tile" ${catAttrs('orange')}>${icon('warning')}</span>
-          <span class="cell-text">
-            <span class="cell-title">Zeit für ein Backup</span>
-            <span class="cell-sub">Deine Daten liegen nur auf diesem Gerät.</span>
-          </span>
-          ${icon('chevron', 'chev')}
-        </a>`
-      : ''}
-
-    <h3 class="section-head">Kategorien</h3>
-    <div class="list">
-      ${cats.map(({ id, n }) => {
-        const cat = categoryById(id);
-        return html`
-          <button class="cell" data-filter="cat:${id ?? ''}">
-            <span class="cat-icon" ${catAttrs(cat?.color ?? 'gray')}>${icon('tag')}</span>
-            <span class="cell-title grow">${cat?.name ?? 'Ohne Kategorie'}</span>
-            <span class="cell-detail">${n}</span>${icon('chevron', 'chev')}
-          </button>`;
-      })}
-    </div>
-
-    <h3 class="section-head">Zuletzt geändert</h3>
-    <div class="list">${recentBoxes(5).map((b) => boxRow(b))}</div>`;
-}
-
-const results = () => (query.trim() ? searchResults() : filter ? filtered() : dashboard());
+const content = () => (query.trim() ? searchResults() : searching ? recents() : filter ? filtered() : overview());
 
 export default {
   tab: 'home',
-  title: 'Suchen',
+  title: 'Lager',
   render() {
     return html`
-      ${navBar({ title: 'Suchen', right: newBoxButton() })}
+      ${navBar({ title: 'Lager', right: newBoxButton() })}
       <main class="page">
-        ${largeTitle('Suchen')}
-        <form class="search" role="search" data-form="search">
-          ${icon('search')}
-          <input type="search" name="q" value="${query}" placeholder="Gegenstand, Nummer oder Platz" aria-label="Suchen"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
-          <button type="button" class="search-clear" data-action="clear-search" aria-label="Suche löschen" ${query ? '' : 'hidden'}>${icon('xmark')}</button>
-        </form>
-        <div id="results">${results()}</div>
+        ${largeTitle('Lager', `${plural(state.shelves.length, 'Regal', 'Regale')} · ${plural(state.zones.length, 'Stellplatz', 'Stellplätze')}`)}
+        <div class="search-row ${searching ? 'active' : ''}">
+          <form class="search" role="search" data-form="search">
+            ${icon('search')}
+            <input type="search" name="q" value="${query}" placeholder="Suchen" aria-label="Suchen"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+            <button type="button" class="search-clear" data-action="clear-search" aria-label="Suche löschen" ${query ? '' : 'hidden'}>${icon('xmark')}</button>
+          </form>
+          <button type="button" class="search-cancel" data-action="cancel-search">Abbrechen</button>
+        </div>
+        <div id="results">${content()}</div>
       </main>`;
   },
   mount(root) {
     const input = root.querySelector('input[name="q"]');
     const clear = root.querySelector('.search-clear');
+    const row = root.querySelector('.search-row');
     const out = root.querySelector('#results');
     const update = () => {
-      out.innerHTML = String(results());
+      out.innerHTML = String(content());
       clear.hidden = !query;
+      row.classList.toggle('active', searching);
+      hydratePhotos(out);
     };
+
+    input.addEventListener('focus', () => {
+      if (searching) return;
+      searching = true;
+      update();
+    });
     input.addEventListener('input', () => {
       query = input.value;
       update();
@@ -170,23 +212,42 @@ export default {
       e.preventDefault();
       input.blur();
     });
+
     root.addEventListener('click', (e) => {
-      const step = e.target.closest('[data-action^="labels-"]');
-      if (step) {
-        presetLabels(step.dataset.action === 'labels-places' ? { mode: 'places' } : { mode: 'boxes', source: 'new' });
+      const action = e.target.closest('[data-action]')?.dataset.action;
+      if (action === 'labels-places' || action === 'labels-boxes') {
+        presetLabels(action === 'labels-places' ? { mode: 'places' } : { mode: 'boxes', source: 'new' });
         return navigate('/etiketten');
       }
-      const t = e.target.closest('[data-filter], [data-action="clear-filter"], [data-action="clear-search"]');
-      if (!t) return;
-      if (t.dataset.filter) filter = t.dataset.filter;
-      else if (t.dataset.action === 'clear-filter') filter = null;
-      else {
+      if (action === 'install') return install();
+      if (action === 'dismiss-install') {
+        dismissInstallHint();
+        return update();
+      }
+      if (action === 'cancel-search') {
+        query = '';
+        searching = false;
+        input.value = '';
+        input.blur();
+        return update();
+      }
+      if (action === 'clear-search') {
         query = '';
         input.value = '';
         input.focus();
+        return update();
       }
-      update();
-      if (t.dataset.filter) window.scrollTo({ top: 0 });
+      if (action === 'clear-filter') {
+        filter = null;
+        return update();
+      }
+      const chip = e.target.closest('[data-filter]');
+      if (chip) {
+        filter = chip.dataset.filter;
+        update();
+        window.scrollTo({ top: 0 });
+      }
     });
+    bindRows(root);
   },
 };
