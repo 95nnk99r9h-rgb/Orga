@@ -1,23 +1,25 @@
 // Storage building blocks – shelf and zone cards with rows of number chips
 // for the start page – and the detail pages for a shelf, a level and a zone.
 
-import { html, icon } from '../ui.js';
+import { html, icon, openSheet } from '../ui.js';
 import { navBar, largeTitle, boxRow, crate, emptyState, shelfDiagram, catAttrs } from '../components.js';
 import { state, shelfById, zoneById, roomById, boxesAt, boxesInZone, shelvesIn, zonesIn, multiRoom } from '../store.js';
-import { plural, unitsLabel } from '../format.js';
+import { plural, unitsLabel, locKey, parseLocKey, locShort } from '../format.js';
 import { navigate } from '../router.js';
 import { newBox, openPickBoxSheet } from './box.js';
 import { presetLabels } from './labels.js';
 
 // The start page draws each shelf: uprights, a board per level with a small
-// level label on its front edge, and the crates standing on it.
-const free = () => html`<span class="rack-free" aria-hidden="true">${icon('plus')}</span>`;
-const crates = (boxes) => (boxes.length ? boxes.map(crate) : free());
+// level label on its front edge, and the crates standing on it – followed by
+// a dashed free spot that puts something new or existing there.
+const free = (loc) =>
+  html`<button type="button" class="rack-free" data-add="${locKey(loc)}" aria-label="Etwas auf ${locShort(loc)} stellen">${icon('plus')}</button>`;
+const crates = (boxes, loc) => html`${boxes.map(crate)}${free(loc)}`;
 
 function rackLevel(shelf, level) {
   return html`
     <div class="rack-level" data-href="/regal/${shelf.id}/${level}">
-      <div class="rack-slots" data-reorder>${crates(boxesAt(shelf.id, level))}</div>
+      <div class="rack-slots" data-reorder>${crates(boxesAt(shelf.id, level), { shelf: shelf.id, level })}</div>
       <a class="rack-tag" href="#/regal/${shelf.id}/${level}" aria-label="Regal ${shelf.id}, Boden ${level}">${shelf.id}${level}</a>
     </div>`;
 }
@@ -68,7 +70,7 @@ export function zoneCard(zones = state.zones, { notice = true } = {}) {
         (z) => html`
           <div class="rack-level floor-spot" data-href="/platz/${z.id}">
             <a class="floor-plate" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}"><b>${z.id}</b><span>${z.name || `Stellplatz ${z.id}`}</span></a>
-            <div class="rack-slots" data-reorder>${crates(boxesInZone(z.id))}</div>
+            <div class="rack-slots" data-reorder>${crates(boxesInZone(z.id), { zone: z.id })}</div>
           </div>`,
       )}
     </section>`;
@@ -95,9 +97,39 @@ export function roomBlock(room) {
 
 const roomPrefix = (place) => (multiRoom() ? `${roomById(place.room)?.name} · ` : '');
 
-// Tapping anywhere on a row (outside its chips) opens the level or zone.
+// What to put on a level or zone: something new, or an entry from elsewhere.
+function openAddSheet(loc) {
+  const option = (kind, color, iconName, title) => html`
+    <button type="button" class="cell" data-add-kind="${kind}">
+      <span class="icon-tile" ${catAttrs(color)}>${icon(iconName)}</span>
+      <span class="cell-title">${title}</span>${icon('chevron', 'chev')}
+    </button>`;
+  openSheet({
+    title: `Auf ${locShort(loc)} stellen`,
+    body: html`
+      <div class="list">
+        ${option('box', 'orange', 'box', 'Neue Kiste erfassen')}
+        ${option('item', 'indigo', 'item', 'Neues Einzelstück erfassen')}
+        ${option('move', 'green', 'move', 'Vorhandenes hierher stellen')}
+      </div>`,
+    onMount(el, close) {
+      el.addEventListener('click', (e) => {
+        const kind = e.target.closest('[data-add-kind]')?.dataset.addKind;
+        if (!kind) return;
+        close();
+        if (kind === 'move') openPickBoxSheet(loc);
+        else newBox({ location: loc, kind });
+      });
+    },
+  });
+}
+
+// Tapping anywhere on a row (outside its crates) opens the level or zone;
+// the dashed free spot offers to put something there.
 export function bindRows(root) {
   root.addEventListener('click', (e) => {
+    const add = e.target.closest('[data-add]');
+    if (add) return openAddSheet(parseLocKey(add.dataset.add));
     if (e.target.closest('a, button')) return;
     const row = e.target.closest('[data-href]');
     if (row) navigate(row.dataset.href);

@@ -1130,11 +1130,20 @@ button.cell:active {
 .rack-free {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 32px;
-  border-radius: 5px;
-  border: 1.5px dashed color-mix(in srgb, var(--tint) 55%, transparent);
-  color: color-mix(in srgb, var(--tint) 75%, transparent);
+  flex: none;
+  width: 56px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1.5px dashed color-mix(in srgb, var(--tint) 60%, transparent);
+  background: color-mix(in srgb, var(--tint-bright) 7%, transparent);
+  color: var(--tint);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.rack-free:active {
+  transform: scale(0.94);
+  background: color-mix(in srgb, var(--tint-bright) 18%, transparent);
 }
 
 .rack-free .i {
@@ -4274,6 +4283,11 @@ button,
 
   .crate:not(.dragging):hover {
     transform: translateY(-2px);
+  }
+
+  .rack-free:hover {
+    border-color: var(--tint);
+    background: color-mix(in srgb, var(--tint-bright) 16%, transparent);
   }
 
   .rack-level:hover {

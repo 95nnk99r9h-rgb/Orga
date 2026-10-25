@@ -46,7 +46,7 @@ export function enableReorder(root, onReorder) {
     } else {
       const last = chips.at(-1).getBoundingClientRect();
       if (chips.at(-1) === chip || y < last.top || x < last.right) return;
-      ref = null; // past the last chip
+      ref = chips.at(-1).nextElementSibling; // past the last crate, before the free spot
     }
     if (ref === chip || ref === chip.nextElementSibling) return;
 
