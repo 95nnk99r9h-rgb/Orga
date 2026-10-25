@@ -50,11 +50,14 @@ function searchResults(query) {
       text: 'Versuche einen Wortteil, z. B. „licht“ statt „Lichterketten“.',
     });
   }
-  const terms = normalize(query).split(/\s+/).filter(Boolean);
+  const queryTerms = normalize(query).split(/\s+/).filter(Boolean);
+  // Found despite a typo: say so, and highlight the words that were meant.
+  const fuzzy = results[0].fuzzy;
   return html`
-    <h3 class="section-head">${unitsLabel(results.map((r) => r.box))}</h3>
+    <h3 class="section-head">${fuzzy ? 'Ähnliche Treffer · ' : ''}${unitsLabel(results.map((r) => r.box))}</h3>
     <div class="list">
-      ${results.map(({ box, matchedItems }) => {
+      ${results.map(({ box, matchedItems, marks }) => {
+        const terms = [...queryTerms, ...marks];
         if (box.kind === 'item' || !box.items.length) return boxRow(box, { title: highlight(boxTitle(box), terms) });
         // Matching contents first, so "where is X" is answered in the list.
         const rest = box.items.filter((it) => !matchedItems.includes(it));

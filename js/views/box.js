@@ -5,19 +5,24 @@ import { html, icon, openSheet, confirmDialog, alertDialog, toast } from '../ui.
 import { navBar, badge, photoImg, hydratePhotos, locationGrid, emptyState, shelfDiagram, catAttrs, placeCode } from '../components.js';
 import {
   state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
-  nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong,
+  nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong, snapshotBox, restoreBox,
 } from '../store.js';
-import { pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitLines, dateLabel, relTime } from '../format.js';
+import {
+  pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitLines, dateLabel, relTime, sinceLabel,
+  unitsLabel,
+} from '../format.js';
 import { processImage } from '../photos.js';
-import { navigate, back, currentPath } from '../router.js';
+import { navigate, back, currentPath, refresh } from '../router.js';
 import { presetLabels } from './labels.js';
 
-let refocusQuickAdd = false;
 let deletedNumber = null;
+let editing = false; // contents being edited on the page: hold re-renders meanwhile
 
-function locationCard(loc) {
+function locationCard(box) {
+  const loc = box.location;
   const shelf = loc?.shelf ? shelfById(loc.shelf) : null;
   const zone = loc?.zone ? zoneById(loc.zone) : null;
+  const since = loc?.away && box.awaySince ? `${sinceLabel(box.awaySince)} · am ${dateLabel(box.awaySince)}` : '';
   return html`
     <section class="card loc-card">
       <div class="loc-main">
@@ -26,6 +31,7 @@ function locationCard(loc) {
           <small>${zone ? 'Stellplatz' : 'Platz'}</small>
           <strong>${locLong(loc)}</strong>
           ${shelf?.note ? html`<span>${shelf.note}</span>` : ''}
+          ${since ? html`<span>${since}</span>` : ''}
         </span>
         ${shelf ? shelfDiagram(shelf.levels, loc.level) : ''}
       </div>
@@ -42,6 +48,9 @@ function locationCard(loc) {
 
 export const boxView = {
   title: ({ number }) => `Nr. ${pad(number)}`,
+  get static() {
+    return editing;
+  },
 
   render({ number }) {
     const box = boxByNumber(Number(number));
@@ -64,7 +73,7 @@ export const boxView = {
           </p>
         </section>
 
-        ${locationCard(box.location)}
+        ${locationCard(box)}
 
         <h3 class="section-head">Fotos</h3>
         <div class="photo-strip">
@@ -81,20 +90,7 @@ export const boxView = {
           ? ''
           : html`
             <h3 class="section-head">Inhalt${box.items.length ? ` · ${box.items.length}` : ''}</h3>
-            <div class="list item-list">
-              ${box.items.map(
-                (item, i) => html`
-                  <div class="cell item-row">
-                    <span class="item-dot" aria-hidden="true"></span>
-                    <span class="cell-title">${item}</span>
-                    <button class="icon-btn" data-action="remove-item" data-i="${i}" aria-label="${item} entfernen">${icon('xmark')}</button>
-                  </div>`,
-              )}
-              <form class="cell item-field blank" data-form="add-item">
-                <span class="item-dot" aria-hidden="true"></span>
-                <input name="item" placeholder="Neuer Gegenstand" autocomplete="off" enterkeyhint="done" aria-label="Neuer Gegenstand">
-              </form>
-            </div>`}
+            <div class="list item-list" data-items>${box.items.map(itemField)}${itemField()}</div>`}
 
         ${box.notes ? html`<h3 class="section-head">Notizen</h3><div class="card note-card">${box.notes}</div>` : ''}
 
@@ -127,9 +123,6 @@ export const boxView = {
         case 'move':
           openMoveSheet(box);
           break;
-        case 'remove-item':
-          updateBox(box.id, { items: box.items.filter((_, i) => i !== Number(t.dataset.i)) });
-          break;
         case 'view-photo':
           openPhotoViewer(box, Number(t.dataset.i));
           break;
@@ -144,37 +137,62 @@ export const boxView = {
             confirm: 'Löschen',
             destructive: true,
           })) {
+            const snapshot = await snapshotBox(box.id);
             deletedNumber = box.number;
             deleteBox(box.id);
             back('/');
-            toast(`${unitName(box)} gelöscht`, 'trash');
+            toast(`${unitName(box)} gelöscht`, 'trash', {
+              label: 'Widerrufen',
+              run: async () => {
+                try {
+                  const restored = await restoreBox(snapshot);
+                  deletedNumber = null;
+                  navigate(`/kiste/${restored.number}`);
+                } catch (err) {
+                  alertDialog({ title: 'Nicht wiederhergestellt', message: err.message });
+                }
+              },
+            });
           }
           break;
       }
     });
 
-    // The empty row at the end of the contents adds an entry on Enter; pasted
-    // lines become one entry each.
-    const form = root.querySelector('[data-form="add-item"]');
-    const add = (items) => {
-      if (!items.length) return;
-      refocusQuickAdd = true;
-      updateBox(box.id, { items: [...box.items, ...items] });
+    // Contents are edited right on the page and saved as you type. While a
+    // field has focus the page doesn't re-render, so the keyboard stays.
+    const list = root.querySelector('[data-items]');
+    let timer = 0;
+    const save = () => {
+      clearTimeout(timer);
+      const items = itemValues(list);
+      if (JSON.stringify(items) !== JSON.stringify(box.items)) updateBox(box.id, { items });
     };
-    form?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      add(splitLines(form.item.value));
-    });
-    form?.item.addEventListener('paste', (e) => {
-      const lines = splitLines(e.clipboardData?.getData('text'));
-      if (lines.length < 2) return;
-      e.preventDefault();
-      add([...splitLines(form.item.value), ...lines]);
-    });
-    if (refocusQuickAdd) {
-      refocusQuickAdd = false;
-      root.querySelector('[data-form="add-item"] input')?.focus({ preventScroll: true });
+    const flush = () => {
+      const held = editing;
+      editing = true;
+      save();
+      editing = held;
+    };
+    if (list) {
+      bindItemFields(list, () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          flush();
+          if (!editing) refresh(); // e.g. removed with ✕ without typing
+        }, 600);
+      });
+      list.addEventListener('focusin', () => (editing = true));
+      list.addEventListener('focusout', (e) => {
+        if (list.contains(e.relatedTarget)) return;
+        flush();
+        editing = false;
+        // Catch up (item count, changes from other devices) once the tap that
+        // ended editing has done its work.
+        setTimeout(() => list.isConnected && !list.contains(document.activeElement) && refresh(), 400);
+      });
     }
+    const onHide = () => document.hidden && list && flush();
+    document.addEventListener('visibilitychange', onHide);
 
     root.querySelector('[data-input="photo"]')?.addEventListener('change', async (e) => {
       const files = [...e.target.files];
@@ -187,6 +205,12 @@ export const boxView = {
         alertDialog({ title: 'Foto nicht gespeichert', message: err.message });
       }
     });
+
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      if (list) flush();
+      editing = false;
+    };
   },
 };
 
@@ -232,7 +256,8 @@ const itemField = (value = '') => html`
     <button type="button" class="icon-btn" data-remove-item tabindex="-1" aria-label="Gegenstand entfernen">${icon('xmark')}</button>
   </div>`;
 
-function bindItemFields(list) {
+// onChange: called after every change to the entries (for saving as you type).
+function bindItemFields(list, onChange = () => {}) {
   const fields = () => [...list.querySelectorAll('.item-field')];
   const inputOf = (row) => row.querySelector('input');
   const blankRow = () => fields().at(-1);
@@ -253,12 +278,16 @@ function bindItemFields(list) {
       row.classList.remove('blank');
       appendBlank();
     }
+    onChange();
   });
 
   // An entry that was emptied disappears once you leave it.
   list.addEventListener('focusout', (e) => {
     const row = e.target.closest('.item-field');
-    if (row && row !== blankRow() && !e.target.value.trim()) row.remove();
+    if (row && e.target.matches('input') && row !== blankRow() && !e.target.value.trim()) {
+      row.remove();
+      onChange();
+    }
   });
 
   list.addEventListener('keydown', (e) => {
@@ -291,11 +320,17 @@ function bindItemFields(list) {
     }
     if (row === blankRow()) appendBlank();
     focusEnd(blankRow());
+    onChange();
   });
 
   list.addEventListener('click', (e) => {
     const remove = e.target.closest('[data-remove-item]');
-    if (remove) remove.closest('.item-field').remove();
+    if (!remove) return;
+    const row = remove.closest('.item-field');
+    // Leave the row first; an emptied row may already go on its own.
+    if (row.contains(document.activeElement)) document.activeElement.blur();
+    if (row.isConnected) row.remove();
+    onChange();
   });
 }
 
@@ -462,19 +497,28 @@ export const newBox = (preset = {}) => openBoxEditor({ preset });
 // ---------------------------------------------------------------------------
 // Moving
 
-export function moveMessage(loc) {
-  if (!loc) return 'Ohne festen Platz';
-  if (loc.away) return 'Als entnommen markiert';
-  return `Nach ${locShort(loc)} umgelagert`;
+// boxes: say how many were moved when there are several.
+export function moveMessage(loc, boxes = []) {
+  const who = boxes.length > 1 ? `${unitsLabel(boxes)} ` : '';
+  if (!loc) return who ? `${who}ohne festen Platz` : 'Ohne festen Platz';
+  if (loc.away) return who ? `${who}als entnommen markiert` : 'Als entnommen markiert';
+  return who ? `${who}nach ${locShort(loc)} umgelagert` : `Nach ${locShort(loc)} umgelagert`;
 }
 
-export function relocate(box, loc) {
-  const prev = box.location;
-  if (sameLoc(prev, loc)) return false;
-  moveBox(box.id, loc);
-  toast(moveMessage(loc), 'checkCircle', { label: 'Widerrufen', run: () => moveBox(box.id, prev) });
-  return true;
+// Moves entries (one or several scanned in a row) and offers to undo it all.
+// Returns the entries that actually moved.
+export function relocateAll(boxes, loc) {
+  const moved = boxes
+    .filter((b) => !sameLoc(b.location, loc))
+    .map((b) => ({ box: b, prev: b.location, since: b.awaySince ?? null }));
+  if (!moved.length) return [];
+  for (const m of moved) moveBox(m.box.id, loc);
+  const undo = () => moved.forEach((m) => updateBox(m.box.id, { location: m.prev, awaySince: m.since }));
+  toast(moveMessage(loc, moved.map((m) => m.box)), 'checkCircle', { label: 'Widerrufen', run: undo });
+  return moved.map((m) => m.box);
 }
+
+export const relocate = (box, loc) => relocateAll([box], loc).length > 0;
 
 export function openMoveSheet(box) {
   return openSheet({

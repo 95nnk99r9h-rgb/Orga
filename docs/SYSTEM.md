@@ -40,7 +40,7 @@ Jeder Boden bekommt ein **Boden-Etikett** mittig an die Vorderkante (in der App:
 ### 2. Was nicht ins Regal passt, bekommt einen Stellplatz
 
 - Feste Plätze außerhalb der Regale heißen **S1, S2, S3 …** und haben einen Namen: „Unter der Treppe“, „Boden vor Regal C“, „Wandhaken“.
-- Auch Orte **außerhalb des Kellers** können Stellplätze sein: „Garage“, „Dachboden“.
+- Weitere Räume wie **Dachboden** oder **Garage** bekommen in der App einen eigenen Bereich mit eigenen Regalen und Stellplätzen (*Mehr → Lagerorte → Raum hinzufügen*). Die Buchstaben zählen einfach weiter: Hat der Keller A–D, beginnt die Garage mit E.
 - Ein **Stellplatz-Etikett** kommt an die Wand oder auf den Boden daneben – so lässt sich dort genauso einlagern wie im Regal.
 
 ### 3. Alles bekommt eine Nummer
@@ -76,7 +76,7 @@ Rechne mit **1–2 Minuten pro Stück**. Zu zweit geht es doppelt so schnell: ei
 2. Nächstes Nummern-Etikett anbringen.
 3. In der App **Scannen** → Etikett scannen → **Kiste** oder **Einzelstück** tippen.
 4. Foto, Kategorie und – bei Kisten – Stichworte zum Inhalt, bei Einzelstücken ein Titel. Sichern.
-5. Ins Regal oder auf den Stellplatz stellen und dessen **Etikett scannen** → eingelagert.
+5. Ins Regal oder auf den Stellplatz stellen und dessen **Etikett scannen** → eingelagert. Mehrere für denselben Boden: erst alle Nummern scannen, dann einmal den Boden.
 
 **Zum Schluss**
 
@@ -97,6 +97,7 @@ Rechne mit **1–2 Minuten pro Stück**. Zu zweit geht es doppelt so schnell: ei
 | 🏷️ | **Etikett zum Gang** | Immer auf die sichtbare Seite, bei Stapeln auf jede Kiste |
 | 📦 | **Gleiche Kisten** | Stapelbare Boxen mit Deckel (45–60 l) schützen vor Staub und Feuchtigkeit |
 | 🔄 | **Einmal im Jahr Keller-Check** | Alles „Ohne Platz“ auflösen, Inhalte prüfen, Unbenutztes aussortieren |
+| 📄 | **Liste an die Tür** | *Etiketten → Listen*: eine Inhaltsliste pro Regal – für alle, die ohne Handy suchen |
 | 👨‍👩‍👧 | **Alle machen mit** | Jeder weiß: raus → austragen, rein → scannen |
 
 **Faustregel fürs Aussortieren:** Was beim Keller-Check zwei Jahre lang nicht gebraucht wurde und keinen Erinnerungswert hat, darf gehen.

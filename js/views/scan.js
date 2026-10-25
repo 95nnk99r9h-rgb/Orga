@@ -1,21 +1,22 @@
 // Camera scanner. Scanning a numbered label (box or loose item) selects it;
-// scanning a level or zone label right after moves it there. Scanning an
-// unknown number offers to create it – the fast path for the big sorting day.
+// scanning a level or zone label right after moves it there. Several numbers
+// scanned in a row are moved together. Scanning an unknown number offers to
+// create it – the fast path for the big sorting day.
 
 import { html, icon, promptDialog } from '../ui.js';
 import { badge, placeCode } from '../components.js';
 import { boxByNumber, boxById, shelfById, zoneById, boxesAt, boxesInZone, locLong } from '../store.js';
-import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel } from '../format.js';
+import { pad, boxTitle, unitName, plural, unitsLabel } from '../format.js';
 import { parseCode } from '../qr.js';
 import { navigate } from '../router.js';
 import { haptic } from '../haptics.js';
 import { formatCode } from '../sync.js';
-import { openBoxEditor, relocate } from './box.js';
+import { openBoxEditor, relocateAll } from './box.js';
 
 const SCAN_INTERVAL = 140; // ms between decode attempts
 
 function cardFor(state) {
-  const { kind, box, loc, number, shelf } = state;
+  const { kind, box, boxes, loc, number, shelf } = state;
   switch (kind) {
     case 'box':
       return html`
@@ -23,10 +24,31 @@ function cardFor(state) {
           ${badge(box)}
           <span class="cell-text"><span class="cell-title">${boxTitle(box)}</span><span class="cell-sub">${locLong(box.location)}</span></span>
         </div>
-        <p class="scan-tip">${icon('scan')} Jetzt einen Boden oder Stellplatz scannen, um sie dort einzulagern.</p>
+        <p class="scan-tip">${icon('scan')} Jetzt einen Boden oder Stellplatz scannen – oder weitere Nummern, um mehrere zusammen einzulagern.</p>
         <div class="scan-card-actions">
           <button class="pill-btn glass" data-scan="dismiss">Fertig</button>
           <button class="pill-btn tint" data-scan="open-box">Öffnen</button>
+        </div>`;
+    case 'batch':
+      return html`
+        <div class="scan-card-main">
+          <span class="scan-count">${boxes.length}</span>
+          <span class="cell-text"><span class="cell-title">${unitsLabel(boxes)} ausgewählt</span><span class="cell-sub">${boxes.map((b) => pad(b.number)).join(' · ')}</span></span>
+        </div>
+        <p class="scan-tip">${icon('scan')} Weitere Nummern scannen – oder jetzt den Boden bzw. Stellplatz, um alle dort einzulagern.</p>
+        <div class="scan-card-actions">
+          <button class="pill-btn glass" data-scan="dismiss">Abbrechen</button>
+          <button class="pill-btn glass" data-scan="drop-last">Letzte entfernen</button>
+        </div>`;
+    case 'moved-batch':
+      return html`
+        <div class="scan-card-main">
+          <span class="scan-check">${icon('check')}</span>
+          <span class="cell-text"><span class="cell-title">${unitsLabel(boxes)} eingelagert</span><span class="cell-sub">${locLong(loc)}${state.already ? ` · ${state.already} stand${state.already === 1 ? '' : 'en'} schon dort` : ''}</span></span>
+        </div>
+        <div class="scan-card-actions">
+          <button class="pill-btn glass" data-scan="dismiss">Weiter scannen</button>
+          <button class="pill-btn tint" data-scan="open-place">Ansehen</button>
         </div>`;
     case 'moved':
       return html`
@@ -42,7 +64,10 @@ function cardFor(state) {
       return html`
         <div class="scan-card-main">
           <span class="scan-check">${icon('check')}</span>
-          <span class="cell-text"><span class="cell-title">Steht schon hier</span><span class="cell-sub">${unitName(box)} · ${locLong(loc)}</span></span>
+          <span class="cell-text">
+            <span class="cell-title">${boxes ? 'Stehen schon alle hier' : 'Steht schon hier'}</span>
+            <span class="cell-sub">${boxes ? unitsLabel(boxes) : unitName(box)} · ${locLong(loc)}</span>
+          </span>
         </div>
         <div class="scan-card-actions"><button class="pill-btn glass" data-scan="dismiss">OK</button></div>`;
     case 'new':
@@ -136,7 +161,7 @@ export default {
     let stopped = false;
     let lastFrame = 0;
     let last = { text: '', at: 0 };
-    let selected = null; // id of the box waiting for a shelf scan
+    let selection = []; // ids of the entries waiting for a place scan
     let card = null;
     let hitTimer = 0;
 
@@ -144,6 +169,11 @@ export default {
       card = state;
       cardEl.hidden = !state;
       if (state) cardEl.innerHTML = String(cardFor(state));
+    };
+    const showSelection = () => {
+      const boxes = selection.map(boxById).filter(Boolean);
+      if (!boxes.length) return show(null);
+      show(boxes.length === 1 ? { kind: 'box', box: boxes[0] } : { kind: 'batch', boxes });
     };
 
     function handle(text) {
@@ -170,8 +200,10 @@ export default {
 
       if (code.type === 'box') {
         const box = boxByNumber(code.number);
-        selected = box?.id ?? null;
-        return show(box ? { kind: 'box', box } : { kind: 'new', number: code.number });
+        if (!box) return show({ kind: 'new', number: code.number });
+        // Numbers scanned before a place are collected and moved together.
+        if (!selection.includes(box.id)) selection.push(box.id);
+        return showSelection();
       }
 
       const shelf = shelfById(code.shelf);
@@ -184,14 +216,15 @@ export default {
       placeScanned({ shelf: shelf.id, level: code.level });
     }
 
-    // A level or zone label: store the selected entry there, or show the place.
+    // A level or zone label: store the selected entries there, or show the place.
     function placeScanned(loc) {
-      const box = selected && boxById(selected);
-      if (!box) return show({ kind: loc.zone ? 'zone' : 'level', loc });
-      selected = null;
-      if (sameLoc(box.location, loc)) return show({ kind: 'already', box, loc });
-      relocate(box, loc);
-      show({ kind: 'moved', box, loc });
+      const boxes = selection.map(boxById).filter(Boolean);
+      if (!boxes.length) return show({ kind: loc.zone ? 'zone' : 'level', loc });
+      selection = [];
+      const moved = relocateAll(boxes, loc);
+      if (!moved.length) return show(boxes.length === 1 ? { kind: 'already', box: boxes[0], loc } : { kind: 'already', boxes, loc });
+      if (boxes.length === 1) return show({ kind: 'moved', box: moved[0], loc });
+      show({ kind: 'moved-batch', boxes: moved, loc, already: boxes.length - moved.length });
     }
 
     worker.onmessage = ({ data }) => {
@@ -252,8 +285,11 @@ export default {
       const action = e.target.closest('[data-scan]')?.dataset.scan;
       if (!action) return;
       if (action === 'dismiss') {
-        selected = null;
+        selection = [];
         show(null);
+      } else if (action === 'drop-last') {
+        selection.pop();
+        showSelection();
       } else if (action === 'open-box') navigate(`/kiste/${card.box.number}`);
       else if (action === 'open-place') navigate(card.loc.zone ? `/platz/${card.loc.zone}` : `/regal/${card.loc.shelf}/${card.loc.level}`);
       else if (action === 'open-shelf') navigate(`/regal/${card.shelf.id}`);
@@ -272,8 +308,12 @@ export default {
           preset: { number: card.number, kind: e.target.closest('[data-scan]').dataset.kind },
           onSaved: (box) => {
             const placed = box.location && !box.location.away;
-            selected = placed ? null : box.id;
-            show(placed ? { kind: 'moved', box, loc: box.location } : { kind: 'box', box });
+            if (placed) {
+              selection = [];
+              return show({ kind: 'moved', box, loc: box.location });
+            }
+            if (!selection.includes(box.id)) selection.push(box.id);
+            showSelection();
           },
         });
         await sheet.closed;

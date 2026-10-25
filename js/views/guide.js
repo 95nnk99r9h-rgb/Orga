@@ -18,7 +18,7 @@ const RULES = [
     color: 'green',
     iconName: 'zone',
     title: 'Was nicht ins Regal passt, bekommt einen Stellplatz',
-    text: 'Feste Plätze außerhalb der Regale heißen S1, S2 … – zum Beispiel „Unter der Treppe“, „Wandhaken“ oder auch „Garage“. Ein Etikett an der Wand oder auf dem Boden markiert sie.',
+    text: 'Feste Plätze außerhalb der Regale heißen S1, S2 … – zum Beispiel „Unter der Treppe“ oder „Wandhaken“. Ein Etikett an der Wand oder auf dem Boden markiert sie. Mehrere Räume wie Keller, Dachboden und Garage legst du unter „Mehr → Lagerorte“ an.',
   },
   {
     n: 3,
@@ -40,7 +40,7 @@ const DAY = [
   ['Regale und Stellplätze beschriften', 'Unter „Etiketten → Regale & Plätze“ drucken. Je ein Etikett mittig an die Vorderkante jedes Bodens, Stellplatz-Etiketten an die Wand oder auf den Boden.'],
   ['Nummern vorab drucken', 'Unter „Etiketten → Nummern“ z. B. 001–024. Die Etiketten passen für Kisten und Einzelstücke.'],
   ['Stück für Stück erfassen', 'Etikett auf die Stirnseite kleben (bei Einzelstücken gut sichtbar oder als Anhänger), scannen, „Kiste“ oder „Einzelstück“ tippen und ein Foto machen. Bei Kisten 3–10 Stichworte zum Inhalt eintippen, bei Einzelstücken nur einen Titel.'],
-  ['Einlagern', 'Ins Regal oder auf den Stellplatz stellen und dessen Etikett scannen. Fertig – die App weiß jetzt, wo es steht.'],
+  ['Einlagern', 'Ins Regal oder auf den Stellplatz stellen und dessen Etikett scannen. Mehrere für denselben Boden? Erst alle Nummern scannen, dann einmal den Boden. Fertig – die App weiß jetzt, wo es steht.'],
   ['Gleich aussortieren', 'Was du beim Durchsehen nicht mehr brauchst, kommt in eine Kiste „Spenden“ oder „Weg“ – nicht zurück ins Regal.'],
 ];
 
@@ -53,6 +53,7 @@ const HABITS = [
   ['tag', 'orange', 'Etikett zum Gang', 'Immer auf die Seite, die man im Regal sieht. Bei Stapeln auf jede Kiste einzeln.'],
   ['box', 'teal', 'Gleiche Kisten', 'Stapelbare Boxen mit Deckel (z. B. 45–60 l) schützen vor Staub und Feuchtigkeit und nutzen den Platz besser.'],
   ['refresh', 'purple', 'Einmal im Jahr Keller-Check', 'Alles „Ohne Platz“ auflösen, Inhalte kurz prüfen, Unbenutztes aussortieren.'],
+  ['list', 'teal', 'Liste an die Tür', 'Unter „Etiketten → Listen“ eine Inhaltsliste pro Regal drucken – für alle, die ohne Handy suchen.'],
   ['people', 'pink', 'Alle machen mit', 'Die App auf allen Handys im Haushalt installieren und ein gemeinsames Backup teilen.'],
 ];
 

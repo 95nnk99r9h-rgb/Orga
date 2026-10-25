@@ -1,11 +1,14 @@
-// Printable label sheets (A4) for numbered entries and for places.
-// Number labels carry only number, QR code and (optionally) category and
-// title – what is inside lives in the app, so a label never needs rewriting.
+// Printable label sheets (A4) for numbered entries and for places, and
+// content lists per shelf for the cellar door. Number labels carry only
+// number, QR code and (optionally) category and title – what is inside lives
+// in the app, so a label never needs rewriting.
 
 import { html, raw, icon, openSheet } from '../ui.js';
 import { navBar, largeTitle, toggleRow, stepper, badge } from '../components.js';
-import { state, sortedBoxes, categoryById, nextNumber, setMeta, COLOR_HEX } from '../store.js';
-import { pad, boxTitle, kindOf, plural, unitsLabel } from '../format.js';
+import {
+  state, sortedBoxes, categoryById, nextNumber, setMeta, COLOR_HEX, boxesAt, boxesInZone, roomById, multiRoom,
+} from '../store.js';
+import { pad, boxTitle, kindOf, plural, unitsLabel, dateLabel } from '../format.js';
 import { qrSVG, boxCode, levelCode, shelfCode, zoneCode } from '../qr.js';
 import { refresh } from '../router.js';
 
@@ -15,7 +18,7 @@ const FORMATS = {
 };
 
 const opts = {
-  mode: 'boxes', // 'boxes' (number labels) | 'places' (levels, shelf signs, zones)
+  mode: 'boxes', // 'boxes' (number labels) | 'places' (levels, shelf signs, zones) | 'lists' (contents per shelf)
   source: 'new', // 'new' | 'existing'
   from: null, // first number for new labels; null = next free
   sheets: 1,
@@ -111,6 +114,97 @@ function collect() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Content lists: one A4 page per shelf (more if it is full), plus the zones.
+
+const LINES_PER_PAGE = 44; // rough capacity of a page below its header
+
+function listRow(box) {
+  const cat = categoryById(box.category);
+  return html`
+    <tr>
+      <td class="ls-num"><span class="ls-dot" style="background:${COLOR_HEX[cat?.color ?? 'gray']}"></span>${pad(box.number)}</td>
+      <td class="ls-what">${boxTitle(box)}</td>
+      <td class="ls-cat">${cat?.name ?? kindOf(box).name}</td>
+    </tr>`;
+}
+
+const rowLines = (box) => 1 + Math.floor(boxTitle(box).length / 70);
+
+// groups: [{ title, boxes }] → pages with as many groups as fit, groups split
+// across pages when needed.
+function listSheets({ code, zone = false, title, sub, qr = '', groups }) {
+  const sheets = [];
+  let body = [];
+  let lines = 0;
+  const flush = () => {
+    sheets.push(body);
+    body = [];
+    lines = 0;
+  };
+  for (const g of groups) {
+    if (lines + 3 > LINES_PER_PAGE) flush();
+    body.push(html`<tr class="ls-group"><th colspan="3">${g.title}</th></tr>`);
+    lines += 1.6;
+    if (!g.boxes.length) {
+      body.push(html`<tr><td colspan="3" class="ls-empty">leer</td></tr>`);
+      lines += 1;
+    }
+    for (const box of g.boxes) {
+      if (lines + rowLines(box) > LINES_PER_PAGE) {
+        flush();
+        body.push(html`<tr class="ls-group"><th colspan="3">${g.title} (Fortsetzung)</th></tr>`);
+        lines += 1.6;
+      }
+      body.push(listRow(box));
+      lines += rowLines(box);
+    }
+  }
+  if (body.length) flush();
+  return sheets.map(
+    (rows, i) => html`
+      <div class="a4 list-sheet">
+        <header class="ls-head">
+          <span class="ls-code ${zone ? 'zone' : ''}">${code}</span>
+          <div class="ls-title"><h1>${title}${i ? ` · Seite ${i + 1}` : ''}</h1><p>${sub}</p></div>
+          ${qr ? html`<span class="ls-qr">${raw(qr)}</span>` : ''}
+        </header>
+        <table class="ls-table"><tbody>${rows}</tbody></table>
+        <footer class="ls-foot">Stand: ${dateLabel(Date.now())} · Immer aktuell in der Fundort-App</footer>
+      </div>`,
+  );
+}
+
+function listPages() {
+  const multi = multiRoom();
+  const shelfSheets = selectedShelves().flatMap((shelf) =>
+    listSheets({
+      code: shelf.id,
+      title: `Regal ${shelf.id}`,
+      sub: [multi ? roomById(shelf.room)?.name : '', shelf.note, plural(shelf.levels, 'Boden', 'Böden')].filter(Boolean).join(' · '),
+      qr: qrSVG(shelfCode(shelf.id)),
+      groups: Array.from({ length: shelf.levels }, (_, i) => ({
+        title: `Boden ${i + 1}${shelf.levels > 1 && i === 0 ? ' · oben' : shelf.levels > 1 && i === shelf.levels - 1 ? ' · unten' : ''}`,
+        boxes: boxesAt(shelf.id, i + 1),
+      })),
+    }),
+  );
+  // Zones: one list per room, so the page fits the door it hangs on.
+  const rooms = multi ? state.rooms : [null];
+  const zoneSheets = rooms.flatMap((room) => {
+    const zones = selectedZones().filter((z) => !room || z.room === room.id);
+    if (!zones.length) return [];
+    return listSheets({
+      code: 'S',
+      zone: true,
+      title: 'Stellplätze',
+      sub: room ? room.name : 'Außerhalb der Regale',
+      groups: zones.map((z) => ({ title: `${z.id} · ${z.name || 'Stellplatz'}`, boxes: boxesInZone(z.id) })),
+    });
+  });
+  return [...shelfSheets, ...zoneSheets];
+}
+
 function pages(labels) {
   const per = FORMATS[opts.format].perPage;
   const cells = [...Array.from({ length: opts.skip }, () => html`<div class="lbl lbl-blank"></div>`), ...labels];
@@ -171,7 +265,8 @@ function boxOptions() {
         </div>`}`;
 }
 
-function placeOptions() {
+function placeOptions({ lists = false } = {}) {
+  const roomName = (place) => (multiRoom() ? `${roomById(place.room)?.name} · ` : '');
   return html`
     ${state.shelves.length
       ? html`
@@ -181,13 +276,16 @@ function placeOptions() {
             checkRow({
               attr: 'data-shelf', id: s.id, checked: !opts.shelves || opts.shelves.has(s.id),
               lead: html`<span class="shelf-letter sm">${s.id}</span>`,
-              title: `Regal ${s.id}`, sub: `${s.note ? `${s.note} · ` : ''}${plural(s.levels, 'Boden', 'Böden')}`,
+              title: `Regal ${s.id}`, sub: `${roomName(s)}${s.note ? `${s.note} · ` : ''}${plural(s.levels, 'Boden', 'Böden')}`,
             }),
           )}
         </div>
-        <div class="list">
-          ${toggleRow({ name: 'signs', label: 'Regal-Schilder', sub: 'Zusätzlich ein großes Schild pro Regal', checked: opts.signs })}
-        </div>`
+        ${lists
+          ? ''
+          : html`
+            <div class="list">
+              ${toggleRow({ name: 'signs', label: 'Regal-Schilder', sub: 'Zusätzlich ein großes Schild pro Regal', checked: opts.signs })}
+            </div>`}`
       : ''}
     ${state.zones.length
       ? html`
@@ -197,12 +295,14 @@ function placeOptions() {
             checkRow({
               attr: 'data-zone', id: z.id, checked: !opts.zones || opts.zones.has(z.id),
               lead: html`<span class="zone-code sm">${z.id}</span>`,
-              title: z.name || `Stellplatz ${z.id}`, sub: `Stellplatz ${z.id}`,
+              title: z.name || `Stellplatz ${z.id}`, sub: `${roomName(z)}Stellplatz ${z.id}`,
             }),
           )}
         </div>`
       : ''}
-    <p class="section-foot">Boden-Etiketten mittig an die Vorderkante kleben (Boden 1 ist immer der oberste). Stellplatz-Etiketten an die Wand oder auf den Boden daneben.</p>`;
+    <p class="section-foot">${lists
+      ? 'Eine Seite pro Regal mit allen Böden und Inhalten, dazu die Stellplätze – zum Aufhängen an der Tür, wenn das Handy oben liegt. Der QR-Code öffnet das Regal in der App.'
+      : 'Boden-Etiketten mittig an die Vorderkante kleben (Boden 1 ist immer der oberste). Stellplatz-Etiketten an die Wand oder auf den Boden daneben.'}</p>`;
 }
 
 function chooseBoxes() {
@@ -244,11 +344,14 @@ function chooseBoxes() {
   });
 }
 
+const sheetsFor = (labels) => (opts.mode === 'lists' ? listPages() : pages(labels));
+
 function print() {
-  const labels = collect();
-  if (!labels.length) return;
+  const labels = opts.mode === 'lists' ? [] : collect();
+  const sheets = sheetsFor(labels);
+  if (!sheets.length) return;
   const root = document.getElementById('print-root');
-  root.innerHTML = String(html`${pages(labels)}`);
+  root.innerHTML = String(html`${sheets}`);
   const from = fromNumber();
   const printedNew = opts.mode === 'boxes' && opts.source === 'new' ? from + labels.length - 1 : 0;
   window.addEventListener(
@@ -270,8 +373,9 @@ export default {
   title: 'Etiketten',
 
   render() {
-    const labels = collect();
-    const sheets = pages(labels);
+    const lists = opts.mode === 'lists';
+    const labels = lists ? [] : collect();
+    const sheets = sheetsFor(labels);
     const fmt = FORMATS[opts.format];
     return html`
       ${navBar({
@@ -283,10 +387,12 @@ export default {
         <div class="seg" role="group" aria-label="Etikettenart">
           <button type="button" data-mode="boxes" aria-pressed="${String(opts.mode === 'boxes')}">Nummern</button>
           <button type="button" data-mode="places" aria-pressed="${String(opts.mode === 'places')}">Regale &amp; Plätze</button>
+          <button type="button" data-mode="lists" aria-pressed="${String(lists)}">Listen</button>
         </div>
 
-        ${opts.mode === 'boxes' ? boxOptions() : placeOptions()}
+        ${opts.mode === 'boxes' ? boxOptions() : placeOptions({ lists })}
 
+        ${lists ? '' : html`
         <h3 class="section-head">Format</h3>
         <div class="list">
           ${Object.entries(FORMATS).map(([key, f]) =>
@@ -301,14 +407,14 @@ export default {
             <span class="cell-text grow"><span class="cell-title">Felder überspringen</span><span class="cell-sub">Angebrochenen Bogen weiter nutzen</span></span>
             ${stepper({ name: 'skip', value: opts.skip, min: 0, max: fmt.perPage - 1 })}
           </div>
-        </div>
+        </div>`}
 
-        <h3 class="section-head">Vorschau · ${plural(labels.length, 'Etikett', 'Etiketten')} auf ${plural(sheets.length, 'Seite', 'Seiten')}</h3>
+        <h3 class="section-head">Vorschau · ${lists ? '' : `${plural(labels.length, 'Etikett', 'Etiketten')} auf `}${plural(sheets.length, 'Seite', 'Seiten')}</h3>
         <div class="preview" data-preview>
           ${sheets.length ? sheets.map((s) => html`<div class="preview-page">${s}</div>`) : html`<div class="card muted-cell">Nichts ausgewählt</div>`}
         </div>
 
-        <button type="button" class="btn" data-action="print" ${labels.length ? '' : raw('disabled')}>${icon('printer')} Drucken</button>
+        <button type="button" class="btn" data-action="print" ${sheets.length ? '' : raw('disabled')}>${icon('printer')} Drucken</button>
         <p class="section-foot center">Im Druckdialog „Tatsächliche Größe“ bzw. 100 % wählen.</p>
       </main>`;
   },

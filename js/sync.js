@@ -5,7 +5,7 @@
 // restarts) and sends them once there is a connection again.
 //
 //   households/{code}                { name, members: [uid], createdAt }
-//   households/{code}/meta/settings  { shelves, zones, categories, printedUpTo, modifiedAt }
+//   households/{code}/meta/settings  { rooms, shelves, zones, categories, printedUpTo, modifiedAt }
 //   households/{code}/boxes/{id}     an entry as stored locally (photo ids only)
 //   households/{code}/photos/{id}    { boxId, data: JPEG as data URL, createdAt }
 
@@ -251,8 +251,11 @@ function attach(code) {
       const removed = [];
       for (const change of snap.docChanges()) {
         if (change.doc.metadata.hasPendingWrites) continue; // our own change, already applied
-        if (change.type === 'removed') removed.push(change.doc.id);
-        else boxes.push(change.doc.data());
+        if (change.type === 'removed') {
+          removed.push(change.doc.id);
+          // Its photos are deleted here too; fetch them again if it comes back.
+          for (const id of change.doc.data().photos ?? []) known?.delete(id);
+        } else boxes.push(change.doc.data());
       }
       if (firstServerAnswer && !snap.metadata.fromCache) {
         firstServerAnswer = false;

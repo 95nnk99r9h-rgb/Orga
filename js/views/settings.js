@@ -1,13 +1,14 @@
 // "Mehr" tab: shelves, categories, backups and the system guide.
 
-import { html, icon, openSheet, confirmDialog, alertDialog, toast, shareOrDownload, pickFile } from '../ui.js';
+import { html, raw, icon, openSheet, confirmDialog, alertDialog, promptDialog, toast, shareOrDownload, pickFile } from '../ui.js';
 import { navBar, largeTitle, catAttrs, stepper } from '../components.js';
 import {
   state, COLORS, MAX_LEVELS, ZONE_SUGGESTIONS, addShelf, updateShelf, removeShelf, addZone, updateZone, removeZone,
+  addRoom, updateRoom, removeRoom, shelvesIn, zonesIn, multiRoom,
   boxesAt, boxesInZone, saveCategory, removeCategory, categoryById, boxesInCategory, exportData, importData, resetAll,
   loadDemo, setMeta,
 } from '../store.js';
-import { dateLabel, unitsLabel } from '../format.js';
+import { dateLabel, unitsLabel, plural } from '../format.js';
 import { navigate, refresh } from '../router.js';
 import { canInstall, install } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
@@ -70,7 +71,7 @@ export const moreView = {
         ${largeTitle('Mehr')}
         <h3 class="section-head">Keller</h3>
         <div class="list">
-          ${row({ iconName: 'shelves', color: 'blue', title: 'Lagerorte', detail: `${state.shelves.length} + ${state.zones.length}`, href: '#/mehr/regale' })}
+          ${row({ iconName: 'shelves', color: 'blue', title: 'Lagerorte', detail: multiRoom() ? plural(state.rooms.length, 'Raum', 'Räume') : `${state.shelves.length} + ${state.zones.length}`, href: '#/mehr/regale' })}
           ${row({ iconName: 'circles', color: 'orange', title: 'Kategorien', detail: String(state.categories.length), href: '#/mehr/kategorien' })}
           ${row({ iconName: 'people', color: 'green', title: 'Gemeinsam nutzen', detail: syncLabel(), href: '#/mehr/haushalt' })}
         </div>
@@ -141,48 +142,88 @@ export const moreView = {
 
 // ---------------------------------------------------------------------------
 
+// With several rooms, shelves and zones can be moved between them.
+const roomSelect = (attr, id, current) => html`
+  <select class="room-select" ${raw(`${attr}="${id}"`)} aria-label="Raum">
+    ${state.rooms.map((r) => html`<option value="${r.id}" ${r.id === current ? raw('selected') : ''}>${r.name}</option>`)}
+  </select>`;
+
+function shelfBlock(s, multi) {
+  return html`
+    <h3 class="section-head">Regal ${s.id} · ${unitsLabel(boxesAt(s.id))}</h3>
+    <div class="list">
+      <label class="cell field">
+        <span class="field-label">Ort</span>
+        <input data-note="${s.id}" value="${s.note}" placeholder="z. B. links neben der Tür" enterkeyhint="done">
+      </label>
+      <div class="cell">
+        <span class="cell-title grow">Böden</span>
+        ${stepper({ name: s.id, value: s.levels, min: 1, max: MAX_LEVELS })}
+      </div>
+      ${multi
+        ? html`<label class="cell"><span class="cell-title grow">Raum</span>${roomSelect('data-shelf-room', s.id, s.room)}</label>`
+        : ''}
+      <button class="cell destructive" data-remove="${s.id}">Regal ${s.id} entfernen</button>
+    </div>`;
+}
+
+function zoneList(zones, room, multi) {
+  return html`
+    <div class="list">
+      ${zones.map(
+        (z) => html`
+          <div class="cell zone-edit">
+            <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id} ansehen">${z.id}</a>
+            <input data-zone="${z.id}" value="${z.name}" placeholder="z. B. unter der Treppe" enterkeyhint="done" aria-label="Name von ${z.id}">
+            ${multi ? roomSelect('data-zone-room', z.id, z.room) : ''}
+            <span class="cell-detail small">${boxesInZone(z.id).length || ''}</span>
+            <button class="icon-btn danger" data-remove-zone="${z.id}" aria-label="Stellplatz ${z.id} entfernen">${icon('trash')}</button>
+          </div>`,
+      )}
+      <button class="cell tint-text" data-add-zone="${room.id}">${icon('plus', 'add-icon')} <span class="cell-title">Stellplatz hinzufügen</span></button>
+    </div>`;
+}
+
 export const shelfSettingsView = {
   tab: 'more',
   title: 'Lagerorte',
   render() {
+    const multi = multiRoom();
     const unused = ZONE_SUGGESTIONS.filter((name) => !state.zones.some((z) => z.name === name));
     return html`
       ${navBar({ title: 'Lagerorte', back: '/mehr' })}
       <main class="page">
         ${largeTitle('Lagerorte')}
         <p class="lead">Regale bekommen Buchstaben – am besten links neben der Tür beginnend, einmal rundherum. Jedes Regal hat so viele Böden, wie es eben hat; gezählt wird von oben nach unten.</p>
-        ${state.shelves.map(
-          (s) => html`
-            <h3 class="section-head">Regal ${s.id} · ${unitsLabel(boxesAt(s.id))}</h3>
-            <div class="list">
-              <label class="cell field">
-                <span class="field-label">Ort</span>
-                <input data-note="${s.id}" value="${s.note}" placeholder="z. B. links neben der Tür" enterkeyhint="done">
-              </label>
-              <div class="cell">
-                <span class="cell-title grow">Böden</span>
-                ${stepper({ name: s.id, value: s.levels, min: 1, max: MAX_LEVELS })}
-              </div>
-              <button class="cell destructive" data-remove="${s.id}">Regal ${s.id} entfernen</button>
-            </div>`,
-        )}
-        <button class="btn secondary" data-action="add">${icon('plus')} Regal hinzufügen</button>
 
-        <h2 class="title2">Stellplätze</h2>
-        <p class="lead">Für alles, was nicht im Regal steht: Großes auf dem Boden, Wandhaken, Ecken – oder Orte außerhalb des Kellers wie Garage und Dachboden. Sie heißen S1, S2 …</p>
+        <h3 class="section-head">Räume</h3>
         <div class="list">
-          ${state.zones.map(
-            (z) => html`
-              <div class="cell zone-edit">
-                <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id} ansehen">${z.id}</a>
-                <input data-zone="${z.id}" value="${z.name}" placeholder="z. B. unter der Treppe" enterkeyhint="done" aria-label="Name von ${z.id}">
-                <span class="cell-detail small">${boxesInZone(z.id).length || ''}</span>
-                <button class="icon-btn danger" data-remove-zone="${z.id}" aria-label="Stellplatz ${z.id} entfernen">${icon('trash')}</button>
+          ${state.rooms.map(
+            (r) => html`
+              <div class="cell room-edit">
+                <span class="icon-tile" ${catAttrs('blue')}>${icon('house')}</span>
+                <input data-room="${r.id}" value="${r.name}" placeholder="z. B. Dachboden" enterkeyhint="done" aria-label="Name des Raums">
+                <span class="cell-detail small">${plural(shelvesIn(r.id).length, 'Regal', 'Regale')}</span>
+                ${multi ? html`<button class="icon-btn danger" data-remove-room="${r.id}" aria-label="${r.name} entfernen">${icon('trash')}</button>` : ''}
               </div>`,
           )}
-          <button class="cell tint-text" data-action="add-zone">${icon('plus', 'add-icon')} <span class="cell-title">Stellplatz hinzufügen</span></button>
+          <button class="cell tint-text" data-action="add-room">${icon('plus', 'add-icon')} <span class="cell-title">Raum hinzufügen</span></button>
         </div>
-        ${unused.length
+        <p class="section-foot">Zum Beispiel Keller, Dachboden und Garage – jeder mit eigenen Regalen und Stellplätzen. Buchstaben und Nummern zählen über alle Räume weiter, so bleibt jede Adresse eindeutig.</p>
+
+        ${state.rooms.map((room) => {
+          const shelves = shelvesIn(room.id);
+          return html`
+            <h2 class="title2">${multi ? room.name : 'Regale'}</h2>
+            ${shelves.map((s) => shelfBlock(s, multi))}
+            <button class="btn secondary" data-add-shelf="${room.id}">${icon('plus')} Regal hinzufügen</button>
+
+            ${multi ? html`<h3 class="section-head">Stellplätze</h3>` : html`
+              <h2 class="title2">Stellplätze</h2>
+              <p class="lead">Für alles, was nicht im Regal steht: Großes auf dem Boden, Wandhaken, Ecken. Sie heißen S1, S2 …</p>`}
+            ${zoneList(zonesIn(room.id), room, multi)}`;
+        })}
+        ${!multi && unused.length
           ? html`
             <p class="section-foot">Vorschläge</p>
             <div class="chips suggestions">
@@ -193,12 +234,15 @@ export const shelfSettingsView = {
   },
   mount(root) {
     root.addEventListener('change', (e) => {
-      const { note, zone } = e.target.dataset;
+      const { note, zone, room, shelfRoom, zoneRoom } = e.target.dataset;
       if (note) updateShelf(note, { note: e.target.value.trim() });
       if (zone) updateZone(zone, { name: e.target.value.trim() });
+      if (room && e.target.value.trim()) updateRoom(room, { name: e.target.value.trim() });
+      if (shelfRoom) updateShelf(shelfRoom, { room: e.target.value });
+      if (zoneRoom) updateZone(zoneRoom, { room: e.target.value });
     });
     root.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.target.dataset.note || e.target.dataset.zone)) e.target.blur();
+      if (e.key === 'Enter' && (e.target.dataset.note || e.target.dataset.zone || e.target.dataset.room)) e.target.blur();
     });
     root.addEventListener('click', async (e) => {
       const step = e.target.closest('[data-step]');
@@ -234,20 +278,39 @@ export const shelfSettingsView = {
         })) removeZone(removeZ);
         return;
       }
+      const removeR = e.target.closest('[data-remove-room]')?.dataset.removeRoom;
+      if (removeR) {
+        const room = state.rooms.find((r) => r.id === removeR);
+        try {
+          if (shelvesIn(removeR).length || zonesIn(removeR).length) return removeRoom(removeR); // explains why not
+          if (await confirmDialog({ title: `„${room.name}“ entfernen?`, confirm: 'Entfernen', destructive: true })) removeRoom(removeR);
+        } catch (err) {
+          alertDialog({ title: 'Geht gerade nicht', message: err.message });
+        }
+        return;
+      }
       const suggest = e.target.closest('[data-suggest]')?.dataset.suggest;
       if (suggest) {
         const zone = addZone(suggest);
         return toast(`${zone.id} · ${zone.name} angelegt`);
       }
-      if (e.target.closest('[data-action="add-zone"]')) {
-        const zone = addZone();
+      const addZoneTo = e.target.closest('[data-add-zone]')?.dataset.addZone;
+      if (addZoneTo) {
+        const zone = addZone('', addZoneTo);
         // The page re-rendered on change, so look the new field up afresh.
         document.querySelector(`[data-zone="${zone.id}"]`)?.focus();
         return;
       }
-      if (e.target.closest('[data-action="add"]')) {
-        const shelf = addShelf(state.shelves.at(-1)?.levels ?? 4);
-        toast(`Regal ${shelf.id} hinzugefügt`);
+      const addShelfTo = e.target.closest('[data-add-shelf]')?.dataset.addShelf;
+      if (addShelfTo) {
+        const shelf = addShelf(shelvesIn(addShelfTo).at(-1)?.levels ?? state.shelves.at(-1)?.levels ?? 4, addShelfTo);
+        return toast(`Regal ${shelf.id} hinzugefügt`);
+      }
+      if (e.target.closest('[data-action="add-room"]')) {
+        const name = await promptDialog({ title: 'Neuer Raum', message: 'Zum Beispiel Dachboden oder Garage.', placeholder: 'Name', confirm: 'Hinzufügen' });
+        if (!name?.trim()) return;
+        const room = addRoom(name);
+        toast(`${room.name} hinzugefügt`);
       }
     });
   },

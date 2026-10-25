@@ -3,7 +3,7 @@
 
 import { html, icon } from '../ui.js';
 import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs } from '../components.js';
-import { state, shelfById, zoneById, boxesAt, boxesInZone } from '../store.js';
+import { state, shelfById, zoneById, roomById, boxesAt, boxesInZone, shelvesIn, zonesIn, multiRoom } from '../store.js';
 import { plural, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { newBox, openPickBoxSheet } from './box.js';
@@ -47,8 +47,10 @@ export function shelfCard(shelf) {
     </section>`;
 }
 
-export function zoneCard() {
-  if (!state.zones.length) {
+// zones: the zones to show (one room's); notice: invite to create some if none.
+export function zoneCard(zones = state.zones, { notice = true } = {}) {
+  if (!zones.length) {
+    if (!notice) return '';
     return html`
       <a class="card notice spaced-bottom" href="#/mehr/regale">
         <span class="icon-tile" ${catAttrs('green')}>${icon('zone')}</span>
@@ -62,7 +64,7 @@ export function zoneCard() {
   return html`
     <section class="card shelf-card">
       ${zonesHead()}
-      ${state.zones.map(
+      ${zones.map(
         (z) => html`
           <div class="level-row zone-row" data-href="/platz/${z.id}">
             <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}">${z.id}</a>
@@ -75,6 +77,25 @@ export function zoneCard() {
       )}
     </section>`;
 }
+
+// With several rooms the start page shows each room under its name.
+export function roomBlock(room) {
+  const shelves = shelvesIn(room.id);
+  const zones = zonesIn(room.id);
+  return html`
+    <h2 class="room-title">${room.name}<small>${plural(shelves.length, 'Regal', 'Regale')} · ${plural(zones.length, 'Stellplatz', 'Stellplätze')}</small></h2>
+    ${shelves.map(shelfCard)}
+    ${zoneCard(zones, { notice: false })}
+    ${shelves.length || zones.length
+      ? ''
+      : html`<a class="card notice spaced-bottom" href="#/mehr/regale">
+          <span class="icon-tile" ${catAttrs('blue')}>${icon('shelves')}</span>
+          <span class="cell-text"><span class="cell-title">Noch leer</span><span class="cell-sub wrap">Regale und Stellplätze für diesen Raum unter „Lagerorte“ anlegen.</span></span>
+          ${icon('chevron', 'chev')}
+        </a>`}`;
+}
+
+const roomPrefix = (place) => (multiRoom() ? `${roomById(place.room)?.name} · ` : '');
 
 // Tapping anywhere on a row (outside its chips) opens the level or zone.
 export function bindRows(root) {
@@ -105,8 +126,8 @@ function bindPlace(root, loc, labelPreset) {
     if (action === 'put-here') openPickBoxSheet(loc);
     if (action === 'new-here') newBox({ location: loc });
     if (action === 'new-item-here') newBox({ location: loc, kind: 'item' });
-    if (action === 'print') {
-      presetLabels({ mode: 'places', ...labelPreset });
+    if (action === 'print' || action === 'print-list') {
+      presetLabels({ mode: action === 'print' ? 'places' : 'lists', ...labelPreset });
       navigate('/etiketten');
     }
   });
@@ -120,14 +141,17 @@ export const shelfView = {
     return html`
       ${navBar({ title: `Regal ${id}`, back: '/' })}
       <main class="page">
-        ${largeTitle(`Regal ${id}`, `${shelf.note ? `${shelf.note} · ` : ''}${plural(shelf.levels, 'Boden', 'Böden')}`)}
+        ${largeTitle(`Regal ${id}`, `${roomPrefix(shelf)}${shelf.note ? `${shelf.note} · ` : ''}${plural(shelf.levels, 'Boden', 'Böden')}`)}
         ${Array.from({ length: shelf.levels }, (_, i) => {
           const level = i + 1;
           return html`
             <a class="section-head link" href="#/regal/${id}/${level}">Boden ${level}${level === 1 ? ' · oben' : level === shelf.levels ? ' · unten' : ''} ${icon('chevron')}</a>
             ${placeList(boxesAt(id, level), 'Leer')}`;
         })}
-        <div class="list actions">${actionRow('print', 'blue', 'printer', `Etiketten für Regal ${id} drucken`)}</div>
+        <div class="list actions">
+          ${actionRow('print-list', 'teal', 'list', 'Inhaltsliste drucken')}
+          ${actionRow('print', 'blue', 'printer', `Etiketten für Regal ${id} drucken`)}
+        </div>
       </main>`;
   },
   mount(root, { shelf }) {
@@ -152,7 +176,7 @@ export const levelView = {
           <div>
             <span class="level-code">${id}${level}</span>
             <h1 data-title-anchor>Regal ${id} · Boden ${level}</h1>
-            <p>${where}${shelf.note ? ` · ${shelf.note}` : ''}</p>
+            <p>${roomPrefix(shelf)}${where}${shelf.note ? ` · ${shelf.note}` : ''}</p>
           </div>
         </section>
         <h3 class="section-head">${unitsLabel(boxes)}</h3>
@@ -184,7 +208,7 @@ export const zoneView = {
           <div>
             <span class="level-code zone">Stellplatz ${id}</span>
             <h1 data-title-anchor>${zone.name || `Stellplatz ${id}`}</h1>
-            <p>Außerhalb der Regale</p>
+            <p>${multiRoom() ? `${roomPrefix(zone)}außerhalb der Regale` : 'Außerhalb der Regale'}</p>
           </div>
         </section>
         <h3 class="section-head">${unitsLabel(boxes)}</h3>

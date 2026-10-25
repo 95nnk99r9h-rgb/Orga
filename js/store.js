@@ -37,10 +37,11 @@ export const MAX_LEVELS = 12;
 const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, settingsModifiedAt: 0, household: null });
 
 export const state = {
-  shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
-  zones: [], // { id: 'S1', name: 'Unter der Treppe' } – places outside the shelves
+  rooms: [], // { id: 'R1', name: 'Keller' } – every shelf and zone belongs to one room
+  shelves: [], // { id: 'A', room: 'R1', note: '', levels: 5 } – each shelf has its own number of levels
+  zones: [], // { id: 'S1', room: 'R1', name: 'Unter der Treppe' } – places outside the shelves
   categories: [], // { id, name, color }
-  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, order, items[], notes, photos[], createdAt, updatedAt }
+  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, order, awaySince, items[], notes, photos[], createdAt, updatedAt }
   meta: freshMeta(),
 };
 
@@ -81,7 +82,7 @@ function persist(promise) {
   return promise;
 }
 
-const settingsRecord = () => ({ shelves: state.shelves, zones: state.zones, categories: state.categories, meta: state.meta });
+const settingsRecord = () => ({ rooms: state.rooms, shelves: state.shelves, zones: state.zones, categories: state.categories, meta: state.meta });
 const putBox = (box) => persist(promisify(os('boxes', 'readwrite').put(box)));
 const putSettings = () => persist(promisify(os('meta', 'readwrite').put(settingsRecord(), 'settings')));
 
@@ -107,6 +108,7 @@ function writeSettings() {
 
 // What the household shares; device matters like the backup date stay local.
 export const sharedSettings = () => ({
+  rooms: state.rooms,
   shelves: state.shelves,
   zones: state.zones,
   categories: state.categories,
@@ -129,10 +131,18 @@ export async function init() {
   navigator.storage?.persist?.().catch(() => {});
 }
 
+// Every shelf and zone belongs to a room. Data from before rooms existed – or
+// from a device that doesn't know them yet – lands in the first room.
+function withRooms({ rooms = [], shelves = [], zones = [] }) {
+  if (!rooms.length) rooms = [{ id: 'R1', name: 'Keller' }];
+  const ids = new Set(rooms.map((r) => r.id));
+  const fix = (place) => (ids.has(place.room) ? place : { ...place, room: rooms[0].id });
+  return { rooms, shelves: shelves.map(fix), zones: zones.map(fix) };
+}
+
 async function loadAll() {
   const settings = await promisify(os('meta').get('settings'));
-  state.shelves = settings?.shelves ?? [];
-  state.zones = settings?.zones ?? [];
+  Object.assign(state, withRooms({ rooms: settings?.rooms, shelves: settings?.shelves, zones: settings?.zones }));
   state.categories = settings?.categories ?? [];
   state.meta = { ...freshMeta(), ...settings?.meta };
   state.boxes = (await promisify(os('boxes').getAll())).map((stored) => {
@@ -176,6 +186,15 @@ export const boxByNumber = (n) => state.boxes.find((b) => b.number === n);
 export const categoryById = (id) => state.categories.find((c) => c.id === id);
 export const shelfById = (id) => state.shelves.find((s) => s.id === id);
 export const zoneById = (id) => state.zones.find((z) => z.id === id);
+export const roomById = (id) => state.rooms.find((r) => r.id === id);
+export const shelvesIn = (room) => state.shelves.filter((s) => s.room === room);
+export const zonesIn = (room) => state.zones.filter((z) => z.room === room);
+export const multiRoom = () => state.rooms.length > 1;
+
+export function roomOf(loc) {
+  const place = loc?.zone ? zoneById(loc.zone) : loc?.shelf ? shelfById(loc.shelf) : null;
+  return place ? roomById(place.room) : null;
+}
 export const sortedBoxes = () => [...state.boxes].sort(byNumber);
 
 export const boxesAt = (shelf, level = null) =>
@@ -186,7 +205,9 @@ export const boxesAt = (shelf, level = null) =>
 export const boxesInZone = (id) => state.boxes.filter((b) => b.location?.zone === id).sort(byOrder);
 export const boxesOfKind = (kind) => state.boxes.filter((b) => b.kind === kind).sort(byNumber);
 export const unplacedBoxes = () => state.boxes.filter((b) => !b.location).sort(byNumber);
-export const awayBoxes = () => state.boxes.filter((b) => b.location?.away).sort(byNumber);
+// Longest gone first; entries from before the date was kept come last.
+export const awayBoxes = () =>
+  state.boxes.filter((b) => b.location?.away).sort((a, b) => (a.awaySince ?? Infinity) - (b.awaySince ?? Infinity) || byNumber(a, b));
 export const boxesInCategory = (id) => state.boxes.filter((b) => (b.category ?? null) === id).sort(byNumber);
 export const recentBoxes = (n = 5) => [...state.boxes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, n);
 export const itemCount = () => state.boxes.reduce((n, b) => n + b.items.length, 0);
@@ -198,11 +219,13 @@ export function countAt(loc) {
 
 export const nextNumber = () => state.boxes.reduce((max, b) => Math.max(max, b.number), 0) + 1;
 
+// "Regal B · Boden 3"; with several rooms the room comes first.
 export function locLong(loc) {
   if (!loc) return 'Ohne festen Platz';
-  if (loc.away) return 'Nicht im Keller';
-  if (loc.zone) return zoneById(loc.zone)?.name || `Stellplatz ${loc.zone}`;
-  return `Regal ${loc.shelf} · Boden ${loc.level}`;
+  if (loc.away) return 'Entnommen';
+  const place = loc.zone ? zoneById(loc.zone)?.name || `Stellplatz ${loc.zone}` : `Regal ${loc.shelf} · Boden ${loc.level}`;
+  const room = multiRoom() ? roomOf(loc)?.name : '';
+  return room ? `${room} · ${place}` : place;
 }
 
 export function isValidLocation(loc) {
@@ -212,39 +235,97 @@ export function isValidLocation(loc) {
   return !!shelf && loc.level >= 1 && loc.level <= shelf.levels;
 }
 
+// Typing errors: a query word of five letters or more may differ by one letter
+// (two from eight letters on) from a word – or a part of a compound word – in
+// an entry; swapped neighbours count as one. Shorter words must match.
+const allowedEdits = (t) => (t.length >= 8 ? 2 : t.length >= 5 ? 1 : 0);
+
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev2 = null;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      row.push(v);
+      best = Math.min(best, v);
+    }
+    if (best > max) return max + 1;
+    prev2 = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+// The word of `text` that matches `t` despite a typo, or null.
+function fuzzyWord(text, t) {
+  const max = allowedEdits(t);
+  if (!max || /^\d+$/.test(t)) return null;
+  for (const word of String(text ?? '').split(/[^\p{L}\p{N}]+/u)) {
+    const w = normalize(word);
+    if (w.length < t.length - max) continue;
+    for (let len = t.length - max; len <= t.length + max; len++) {
+      for (let i = 0; i + len <= w.length; i++) {
+        if (editDistance(t, w.slice(i, i + len), max) <= max) return word;
+      }
+    }
+  }
+  return null;
+}
+
+function matchBox(box, tokens, fuzzy) {
+  const title = normalize(box.title);
+  const items = box.items.map((it) => [it, normalize(it)]);
+  const zone = box.location?.zone ? zoneById(box.location.zone)?.name : '';
+  const otherRaw = [box.notes, categoryById(box.category)?.name, locKey(box.location), zone, roomOf(box.location)?.name];
+  const other = otherRaw.map(normalize);
+  const numbers = [String(box.number), pad(box.number)];
+  const matchedItems = new Set();
+  const marks = new Set(); // words found despite a typo, for highlighting
+  let score = 0;
+  for (const t of tokens) {
+    let s = 0;
+    if (numbers.includes(t)) s = 10;
+    if (title.includes(t)) s = Math.max(s, title.startsWith(t) ? 6 : 5);
+    for (const [raw, norm] of items) {
+      if (norm.includes(t)) {
+        matchedItems.add(raw);
+        s = Math.max(s, norm.startsWith(t) ? 4 : 3);
+      }
+    }
+    if (!s && other.some((v) => v.includes(t))) s = 1;
+    if (!s && fuzzy) {
+      const hit = (text) => {
+        const word = fuzzyWord(text, t);
+        if (word) marks.add(word);
+        return !!word;
+      };
+      if (hit(box.title)) s = 4;
+      for (const [raw] of items) {
+        if (hit(raw)) {
+          matchedItems.add(raw);
+          s = Math.max(s, 2);
+        }
+      }
+      if (!s && otherRaw.some(hit)) s = 0.5;
+    }
+    if (!s) return null;
+    score += s;
+  }
+  return { box, score, matchedItems: [...matchedItems], marks: [...marks], fuzzy };
+}
+
 // Every query word has to match somewhere; title and item hits rank highest.
+// Only if nothing matches exactly, entries with a small typo are offered.
 export function search(query) {
   const tokens = normalize(query).split(/\s+/).filter(Boolean);
   if (!tokens.length) return [];
-  const results = [];
-  for (const box of state.boxes) {
-    const title = normalize(box.title);
-    const items = box.items.map((it) => [it, normalize(it)]);
-    const zone = box.location?.zone ? zoneById(box.location.zone)?.name : '';
-    const other = [box.notes, categoryById(box.category)?.name, locKey(box.location), zone].map(normalize);
-    const numbers = [String(box.number), pad(box.number)];
-    const matchedItems = new Set();
-    let score = 0;
-    let all = true;
-    for (const t of tokens) {
-      let s = 0;
-      if (numbers.includes(t)) s = 10;
-      if (title.includes(t)) s = Math.max(s, title.startsWith(t) ? 6 : 5);
-      for (const [raw, norm] of items) {
-        if (norm.includes(t)) {
-          matchedItems.add(raw);
-          s = Math.max(s, norm.startsWith(t) ? 4 : 3);
-        }
-      }
-      if (!s && other.some((v) => v.includes(t))) s = 1;
-      if (!s) {
-        all = false;
-        break;
-      }
-      score += s;
-    }
-    if (all) results.push({ box, score, matchedItems: [...matchedItems] });
-  }
+  let results = state.boxes.map((box) => matchBox(box, tokens, false)).filter(Boolean);
+  if (!results.length) results = state.boxes.map((box) => matchBox(box, tokens, true)).filter(Boolean);
   return results.sort((a, b) => b.score - a.score || a.box.number - b.box.number);
 }
 
@@ -269,6 +350,7 @@ export function createBox(data) {
     title: (data.title ?? '').trim(),
     category: data.category ?? null,
     location: data.location ?? null,
+    awaySince: data.location?.away ? now : null,
     items: data.items ?? [],
     notes: (data.notes ?? '').trim(),
     photos: data.photos ?? [],
@@ -285,8 +367,10 @@ export function updateBox(id, patch) {
   const box = boxById(id);
   if (!box) throw new Error('Eintrag nicht gefunden.');
   if ('number' in patch) assertNumber(patch.number, id);
-  // Moved somewhere else: line up at the end there.
-  if ('location' in patch && locKey(patch.location) !== locKey(box.location)) patch = { ...patch, order: null };
+  // Moved somewhere else: line up at the end there, and note when it was taken out.
+  if ('location' in patch && locKey(patch.location) !== locKey(box.location)) {
+    patch = { order: null, awaySince: patch.location?.away ? Date.now() : null, ...patch };
+  }
   Object.assign(box, patch, { updatedAt: Date.now() });
   writeBox(box);
   emit();
@@ -306,6 +390,27 @@ export function reorderBoxes(ids) {
     }
   });
   emit();
+}
+
+// Everything needed to bring a deleted entry back, photos included.
+export async function snapshotBox(id) {
+  const box = boxById(id);
+  const photos = (await Promise.all(box.photos.map((pid) => photoRecord(pid)))).filter(Boolean);
+  return { box: structuredClone(box), photos };
+}
+
+export async function restoreBox({ box, photos }) {
+  if (boxById(box.id)) return box;
+  assertNumber(box.number, box.id);
+  const tx = db.transaction('photos', 'readwrite');
+  for (const p of photos) tx.objectStore('photos').put(p);
+  await persist(done(tx));
+  const restored = { ...box, photos: photos.map((p) => p.id), updatedAt: Date.now() };
+  state.boxes.push(restored);
+  writeBox(restored);
+  sync.photos?.(photos);
+  emit();
+  return restored;
 }
 
 export function deleteBox(id) {
@@ -400,10 +505,10 @@ export const shelfLetter = (i) => {
   return s;
 };
 
-export function addShelf(levels = 4) {
+export function addShelf(levels = 4, room = state.rooms[0]?.id) {
   let i = 0;
   while (shelfById(shelfLetter(i))) i++;
-  const shelf = { id: shelfLetter(i), note: '', levels };
+  const shelf = { id: shelfLetter(i), room, note: '', levels };
   state.shelves.push(shelf);
   state.shelves.sort((a, b) => a.id.length - b.id.length || a.id.localeCompare(b.id));
   writeSettings();
@@ -432,10 +537,10 @@ export function removeShelf(id) {
   emit();
 }
 
-export function addZone(name = '') {
+export function addZone(name = '', room = state.rooms[0]?.id) {
   let n = 1;
   while (zoneById(`S${n}`)) n++;
-  const zone = { id: `S${n}`, name: name.trim() };
+  const zone = { id: `S${n}`, room, name: name.trim() };
   state.zones.push(zone);
   state.zones.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
   writeSettings();
@@ -454,6 +559,36 @@ export function updateZone(id, patch) {
 export function removeZone(id) {
   unplace((loc) => loc.zone === id);
   state.zones = state.zones.filter((z) => z.id !== id);
+  writeSettings();
+  emit();
+}
+
+export function addRoom(name) {
+  name = name.trim();
+  if (!name) throw new Error('Bitte gib dem Raum einen Namen.');
+  let n = 1;
+  while (roomById(`R${n}`)) n++;
+  const room = { id: `R${n}`, name };
+  state.rooms.push(room);
+  writeSettings();
+  emit();
+  return room;
+}
+
+export function updateRoom(id, patch) {
+  const room = roomById(id);
+  if (!room) return;
+  Object.assign(room, patch);
+  writeSettings();
+  emit();
+}
+
+export function removeRoom(id) {
+  if (state.rooms.length < 2) throw new Error('Ein Raum muss bleiben.');
+  if (shelvesIn(id).length || zonesIn(id).length) {
+    throw new Error('Verschiebe zuerst seine Regale und Stellplätze in einen anderen Raum oder entferne sie.');
+  }
+  state.rooms = state.rooms.filter((r) => r.id !== id);
   writeSettings();
   emit();
 }
@@ -491,8 +626,9 @@ export function setMeta(patch, { quiet = false } = {}) {
 
 // levels: number of levels per shelf, e.g. [5, 3, 4]; zoneNames: free spots.
 export function setupCellar(levels, zoneNames = []) {
-  state.shelves = levels.map((n, i) => ({ id: shelfLetter(i), note: '', levels: n }));
-  state.zones = zoneNames.map((name, i) => ({ id: `S${i + 1}`, name }));
+  state.rooms = [{ id: 'R1', name: 'Keller' }];
+  state.shelves = levels.map((n, i) => ({ id: shelfLetter(i), room: 'R1', note: '', levels: n }));
+  state.zones = zoneNames.map((name, i) => ({ id: `S${i + 1}`, room: 'R1', name }));
   if (!state.categories.length) state.categories = DEFAULT_CATEGORIES.map((c) => ({ ...c }));
   state.meta.setupDone = true;
   writeSettings();
@@ -530,10 +666,10 @@ export async function exportData() {
   };
 }
 
-async function replaceAll({ shelves, zones = [], categories, meta, boxes, photos }) {
+async function replaceAll({ rooms = [], shelves, zones = [], categories, meta, boxes, photos }) {
   const tx = db.transaction(['meta', 'boxes', 'photos'], 'readwrite');
   for (const name of ['meta', 'boxes', 'photos']) tx.objectStore(name).clear();
-  tx.objectStore('meta').put({ shelves, zones, categories, meta }, 'settings');
+  tx.objectStore('meta').put({ rooms, shelves, zones, categories, meta }, 'settings');
   for (const b of boxes) tx.objectStore('boxes').put(b);
   for (const p of photos) tx.objectStore('photos').put(p);
   await done(tx);
@@ -548,8 +684,9 @@ async function replaceAll({ shelves, zones = [], categories, meta, boxes, photos
 export function applyRemote({ settings = null, boxes = [], removed = [] }) {
   let changed = false;
   if (settings && (settings.modifiedAt ?? 0) >= (state.meta.settingsModifiedAt ?? 0)) {
-    const next = { shelves: settings.shelves ?? [], zones: settings.zones ?? [], categories: settings.categories ?? [] };
-    if (JSON.stringify(next) !== JSON.stringify({ shelves: state.shelves, zones: state.zones, categories: state.categories })) {
+    const next = { ...withRooms(settings), categories: settings.categories ?? [] };
+    const current = { rooms: state.rooms, shelves: state.shelves, zones: state.zones, categories: state.categories };
+    if (JSON.stringify(next) !== JSON.stringify(current)) {
       Object.assign(state, next);
       changed = true;
     }
@@ -580,6 +717,7 @@ export function applyRemote({ settings = null, boxes = [], removed = [] }) {
 // Joining a household: this device takes over the household's data.
 export function adoptHousehold({ settings, boxes, household }) {
   return replaceAll({
+    rooms: settings?.rooms ?? [],
     shelves: settings?.shelves ?? [],
     zones: settings?.zones ?? [],
     categories: settings?.categories ?? DEFAULT_CATEGORIES.map((c) => ({ ...c })),
@@ -605,6 +743,7 @@ export async function importData(data) {
     (data.photos ?? []).map(async (p) => ({ ...p, full: await toBlob(p.full), thumb: await toBlob(p.thumb ?? p.full) })),
   );
   await replaceAll({
+    rooms: data.rooms ?? [],
     shelves: data.shelves,
     zones: data.zones ?? [],
     categories: data.categories ?? [],
@@ -614,7 +753,7 @@ export async function importData(data) {
   });
 }
 
-export const resetAll = () => replaceAll({ shelves: [], zones: [], categories: [], meta: freshMeta(), boxes: [], photos: [] });
+export const resetAll = () => replaceAll({ rooms: [], shelves: [], zones: [], categories: [], meta: freshMeta(), boxes: [], photos: [] });
 
 // ---------------------------------------------------------------------------
 // Demo data, to try the app before the real cellar is done.
@@ -630,8 +769,8 @@ const DEMO_BOXES = [
   [7, 'kleidung', 'B2', 'Bodys Gr. 62–74, Strampler, Schlafsack 70 cm, Mützchen', 'Für die Cousine aufheben.'],
   [8, 'kleidung', 'B2', 'Badehosen, Sommerkleider, Sonnenhüte, Flip-Flops, Strandtuch'],
   [9, 'freizeit', 'D5', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
-  [10, 'freizeit', 'C4', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
-  [11, 'werkzeug', 'C4', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
+  [10, 'freizeit', 'E2', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
+  [11, 'werkzeug', 'E1', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
   [12, 'elektronik', 'C2', 'HDMI-Kabel, USB-C-Ladegeräte, Mehrfachstecker, alte Handys, Router (alt)'],
   [13, 'kinder', 'D3', 'Duplo-Steine, Lego City Polizeistation, Lego-Anleitungen'],
   [14, 'haushalt', 'D2', 'Pappteller, Becher, Servietten, Luftballons, Girlanden'],
@@ -646,7 +785,7 @@ const DEMO_ITEMS = [
   [19, 'Weihnachtsbaum (künstlich)', 'weihnachten', '@S2', 'In der Originalhülle, 1,80 m, Baumständer liegt dabei.'],
   [20, 'Kinderwagen', 'kinder', '@S1'],
   [21, 'Großer Koffer', 'freizeit', 'B3', 'Steht im hohen unteren Fach.'],
-  [22, 'Schlitten', 'freizeit', '@S3'],
+  [22, 'Schlitten', 'freizeit', '@S4'],
 ];
 
 export async function loadDemo() {
@@ -660,21 +799,30 @@ export async function loadDemo() {
   });
   const boxes = [
     ...DEMO_BOXES.map(([number, category, where, items, notes = ''], i) =>
-      entry(i, { kind: 'box', number, title: '', category, location: parseLocKey(where), items: items.split(', '), notes })),
+      entry(i, {
+        kind: 'box', number, title: '', category, location: parseLocKey(where), items: items.split(', '), notes,
+        awaySince: where === 'away' ? now - 12 * 86400000 : null,
+      })),
     ...DEMO_ITEMS.map(([number, title, category, where, notes = ''], i) =>
       entry(DEMO_BOXES.length + i, { kind: 'item', number, title, category, location: parseLocKey(where), items: [], notes })),
   ];
   await replaceAll({
+    rooms: [
+      { id: 'R1', name: 'Keller' },
+      { id: 'R2', name: 'Garage' },
+    ],
     shelves: [
-      { id: 'A', note: 'Links neben der Tür', levels: 5 },
-      { id: 'B', note: 'Hohes Regal, linke Wand', levels: 3 },
-      { id: 'C', note: 'Rückwand', levels: 4 },
-      { id: 'D', note: 'Schmales Regal rechts', levels: 6 },
+      { id: 'A', room: 'R1', note: 'Links neben der Tür', levels: 5 },
+      { id: 'B', room: 'R1', note: 'Hohes Regal, linke Wand', levels: 3 },
+      { id: 'C', room: 'R1', note: 'Rückwand', levels: 4 },
+      { id: 'D', room: 'R1', note: 'Schmales Regal rechts', levels: 6 },
+      { id: 'E', room: 'R2', note: 'Schwerlastregal an der Rückwand', levels: 3 },
     ],
     zones: [
-      { id: 'S1', name: 'Boden vor Regal C' },
-      { id: 'S2', name: 'Unter der Treppe' },
-      { id: 'S3', name: 'Wandhaken neben der Tür' },
+      { id: 'S1', room: 'R1', name: 'Boden vor Regal C' },
+      { id: 'S2', room: 'R1', name: 'Unter der Treppe' },
+      { id: 'S3', room: 'R1', name: 'Wandhaken neben der Tür' },
+      { id: 'S4', room: 'R2', name: 'Wandhaken Garage' },
     ],
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })),
     meta: { ...freshMeta(), setupDone: true, printedUpTo: 24, lastBackup: now },

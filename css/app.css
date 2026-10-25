@@ -2166,6 +2166,18 @@ textarea {
   flex: none;
 }
 
+.scan-count {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--tint);
+  color: #fff;
+  font: 700 20px/1 var(--font-round);
+  flex: none;
+}
+
 .scan-check.warn {
   background: #ff9f0a;
 }
@@ -2552,6 +2564,125 @@ textarea {
   }
 }
 
+/* Content lists (A4, one page per shelf) */
+
+.a4.list-sheet {
+  display: flex;
+  flex-direction: column;
+  padding: 14mm 14mm 10mm;
+  font-size: 10pt;
+  line-height: 1.35;
+}
+
+.ls-head {
+  display: flex;
+  align-items: center;
+  gap: 5mm;
+  padding-bottom: 4mm;
+  border-bottom: 0.5mm solid #1d1d1f;
+}
+
+.ls-code {
+  width: 16mm;
+  height: 16mm;
+  border-radius: 3mm;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: #1d1d1f;
+  color: #fff;
+  font: 800 26pt/1 var(--font-round);
+}
+
+.ls-code.zone {
+  background: #248a3d;
+}
+
+.ls-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.ls-title h1 {
+  font-size: 20pt;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.ls-title p {
+  margin-top: 1mm;
+  color: #6e6e73;
+}
+
+.ls-qr {
+  width: 18mm;
+  height: 18mm;
+  flex: none;
+}
+
+.ls-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ls-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 2mm;
+}
+
+.ls-table th,
+.ls-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 1.6mm 2mm;
+}
+
+.ls-group th {
+  padding-top: 4mm;
+  font-size: 11pt;
+  font-weight: 700;
+  border-bottom: 0.3mm solid #1d1d1f;
+}
+
+.ls-table td {
+  border-bottom: 0.2mm solid #d1d1d6;
+}
+
+.ls-num {
+  width: 17mm;
+  white-space: nowrap;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ls-dot {
+  display: inline-block;
+  width: 2.4mm;
+  height: 2.4mm;
+  border-radius: 50%;
+  margin-right: 1.6mm;
+  vertical-align: 0.1mm;
+}
+
+.ls-cat {
+  width: 34mm;
+  color: #6e6e73;
+}
+
+.ls-empty {
+  color: #8e8e93;
+  font-style: italic;
+}
+
+.ls-foot {
+  margin-top: auto;
+  padding-top: 4mm;
+  font-size: 8pt;
+  color: #8e8e93;
+}
+
 /* ------------------------------------------------------------------- Guide */
 
 .rule-stack {
@@ -2923,6 +3054,18 @@ textarea {
   margin-top: 16px;
 }
 
+.lg-room {
+  margin: 22px 2px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.locgrid > .lg-room:first-child,
+.lg-room + .lg-label {
+  margin-top: 0;
+}
+
 .locgrid > .lg-label:first-child {
   margin-top: 0;
 }
@@ -2982,7 +3125,8 @@ textarea {
   --sep-inset: 60px;
 }
 
-.zone-edit input {
+.zone-edit input,
+.room-edit input {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -2992,8 +3136,32 @@ textarea {
   color: var(--label);
 }
 
-.zone-edit input::placeholder {
+.zone-edit input::placeholder,
+.room-edit input::placeholder {
   color: var(--label-3);
+}
+
+.room-edit {
+  --sep-inset: 58px;
+}
+
+/* A compact picker for the room of a shelf or zone. */
+.room-select {
+  max-width: 116px;
+  min-width: 0;
+  flex: none;
+  border: 0;
+  outline: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--fill-3);
+  color: var(--tint);
+  font-size: 15px;
+  text-overflow: ellipsis;
+}
+
+.zone-edit .room-select {
+  max-width: 92px;
 }
 
 .cell-detail.small {
@@ -3259,6 +3427,25 @@ button,
 
 .theme-seg {
   margin: 0;
+}
+
+/* Rooms on the start page */
+
+.room-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 30px 4px 10px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.room-title small {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--label-2);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------- Shared use */

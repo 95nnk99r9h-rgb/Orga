@@ -91,5 +91,16 @@ export function relTime(ts) {
   return 'gerade eben';
 }
 
+// "seit 3 Wochen" – how long something has been out.
+export function sinceLabel(ts) {
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days < 1) return 'seit heute';
+  if (days === 1) return 'seit gestern';
+  if (days < 14) return `seit ${days} Tagen`;
+  if (days < 61) return `seit ${Math.floor(days / 7)} Wochen`;
+  if (days < 730) return `seit ${Math.floor(days / 30.44)} Monaten`;
+  return `seit ${Math.floor(days / 365.25)} Jahren`;
+}
+
 const dtf = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 export const dateLabel = (ts) => dtf.format(ts);
