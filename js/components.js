@@ -2,7 +2,7 @@
 
 import { html, raw, icon, esc } from './ui.js';
 import { state, categoryById, countAt, photoURL, photoURLCached } from './store.js';
-import { pad, boxTitle, kindOf, locKey, locShort } from './format.js';
+import { pad, boxTitle, kindOf, locKey, locShort, expiryState, expiryLabel } from './format.js';
 
 export function navBar({ title = '', back = null, left = '', right = '' } = {}) {
   return html`
@@ -59,6 +59,13 @@ export function highlight(text, terms) {
   return raw(String(text).split(re).map((part, i) => (i % 2 ? `<mark>${esc(part)}</mark>` : esc(part))).join(''));
 }
 
+// Expired or soon expiring entries carry their month in red or orange.
+export function expiryTag(box) {
+  const s = expiryState(box.expiry, state.meta.expiryWarn);
+  if (s !== 'expired' && s !== 'soon') return '';
+  return html`<b class="exp-tag ${s}">${s === 'expired' ? 'Abgelaufen' : 'Verfall'} ${expiryLabel(box.expiry)}</b> `;
+}
+
 // One list row: what it is (a box's contents, an item's title), below where
 // it stands and its category. On a place's own page the place is left out.
 export function boxRow(box, { title = null, showLoc = true, href = `#/kiste/${box.number}`, trailing = null } = {}) {
@@ -68,7 +75,7 @@ export function boxRow(box, { title = null, showLoc = true, href = `#/kiste/${bo
       ${badge(box)}
       <span class="cell-text">
         <span class="cell-title">${title ?? boxTitle(box)}</span>
-        <span class="cell-sub">${showLoc ? html`<b class="loc-tag">${locShort(box.location)}</b> ` : ''}${kind}</span>
+        <span class="cell-sub">${showLoc ? html`<b class="loc-tag">${locShort(box.location)}</b> ` : ''}${expiryTag(box)}${kind}</span>
       </span>
       ${box.photos[0] ? photoImg(box.photos[0], 'thumb', 'row-thumb') : ''}
       ${trailing ?? icon('chevron', 'chev')}
@@ -146,7 +153,7 @@ export function locationGrid(selected, { exclude = null } = {}) {
       ${zones}
       <div class="lg-extra">
         <button type="button" class="lg-opt" data-loc="none" aria-pressed="${String(sel === 'none')}">${icon('tray')} Ohne festen Platz</button>
-        <button type="button" class="lg-opt" data-loc="away" aria-pressed="${String(sel === 'away')}">${icon('house')} Nicht im Keller</button>
+        <button type="button" class="lg-opt" data-loc="away" aria-pressed="${String(sel === 'away')}">${icon('house')} Nicht im Lager</button>
       </div>
     </div>`;
 }

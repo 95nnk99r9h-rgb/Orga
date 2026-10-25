@@ -2,9 +2,21 @@
 // synchronously, notify subscribers and are persisted to IndexedDB in the
 // background. Photos live in their own object store and are loaded lazily.
 
-import { locKey, normalize, pad, parseLocKey } from './format.js';
+import { locKey, normalize, pad, parseLocKey, expiryState, expiryLabel } from './format.js';
 
-const DB_NAME = 'fundort';
+// The pharmacy edition keeps its data apart from other Fundort apps on the
+// same web address. The demo mode works on a database of its own, so trying
+// things out never touches the real data.
+const DEMO_KEY = 'fundort-apotheke.demo'; // 'fresh' = load the demo on next start
+const demoFlag = () => {
+  try {
+    return localStorage.getItem(DEMO_KEY);
+  } catch {
+    return null;
+  }
+};
+export const isDemo = () => !!demoFlag();
+const DB_NAME = isDemo() ? 'fundort-apotheke-demo' : 'fundort-apotheke';
 const DB_VERSION = 1;
 
 export const COLORS = ['red', 'orange', 'yellow', 'green', 'mint', 'teal', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'brown', 'gray'];
@@ -17,30 +29,40 @@ export const COLOR_HEX = {
 };
 
 export const DEFAULT_CATEGORIES = [
-  { id: 'weihnachten', name: 'Weihnachten', color: 'red' },
-  { id: 'deko', name: 'Deko', color: 'orange' },
-  { id: 'kleidung', name: 'Kleidung', color: 'blue' },
-  { id: 'kinder', name: 'Kinder & Spielzeug', color: 'pink' },
-  { id: 'freizeit', name: 'Sport & Camping', color: 'green' },
-  { id: 'werkzeug', name: 'Werkzeug', color: 'brown' },
-  { id: 'elektronik', name: 'Elektronik & Kabel', color: 'indigo' },
-  { id: 'haushalt', name: 'Küche & Haushalt', color: 'teal' },
-  { id: 'dokumente', name: 'Dokumente', color: 'gray' },
-  { id: 'erinnerungen', name: 'Erinnerungen', color: 'purple' },
+  { id: 'ueberbestand', name: 'Überbestand', color: 'blue' },
+  { id: 'aktion', name: 'Aktion & Saison', color: 'orange' },
+  { id: 'kosmetik', name: 'Kosmetik & Pflege', color: 'pink' },
+  { id: 'verband', name: 'Verbandstoffe', color: 'mint' },
+  { id: 'hilfsmittel', name: 'Hilfsmittel', color: 'teal' },
+  { id: 'leihgeraete', name: 'Leihgeräte', color: 'indigo' },
+  { id: 'rezeptur', name: 'Rezepturbedarf', color: 'purple' },
+  { id: 'verbrauch', name: 'Verbrauchsmaterial', color: 'brown' },
+  { id: 'werbung', name: 'Werbemittel & Deko', color: 'yellow' },
+  { id: 'retouren', name: 'Retouren & Sperrware', color: 'red' },
+  { id: 'buero', name: 'Büro & Archiv', color: 'gray' },
 ];
 
-export const ZONE_SUGGESTIONS = ['Boden vor den Regalen', 'Unter der Treppe', 'Wandhaken', 'Hinter der Tür', 'Garage', 'Dachboden'];
+export const ZONE_SUGGESTIONS = ['Kühlschrank (2–8 °C)', 'Sperrlager', 'Boden vor den Regalen', 'Keller', 'Rezeptur', 'Büro', 'Schaufenster'];
+
+// Months before the expiry at which an entry shows up under "Verfall".
+export const EXPIRY_WARN_OPTIONS = [
+  [1, '1 Monat'],
+  [3, '3 Monate'],
+  [6, '6 Monate'],
+  [12, '1 Jahr'],
+];
 
 export const MAX_LEVELS = 12;
 
 // household: { id, name, lastSync } once this device is linked to one.
-const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, settingsModifiedAt: 0, household: null });
+const freshMeta = () => ({ setupDone: false, lastBackup: null, printedUpTo: 0, expiryWarn: 3, settingsModifiedAt: 0, household: null });
+const SHARED_META = ['printedUpTo', 'expiryWarn'];
 
 export const state = {
   shelves: [], // { id: 'A', note: '', levels: 5 } – each shelf has its own number of levels
-  zones: [], // { id: 'S1', name: 'Unter der Treppe' } – places outside the shelves
+  zones: [], // { id: 'S1', name: 'Kühlschrank' } – places outside the shelves
   categories: [], // { id, name, color }
-  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, order, items[], notes, photos[], createdAt, updatedAt }
+  boxes: [], // { id, kind: 'box'|'item', number, title, category, location, order, items[], expiry, notes, photos[], createdAt, updatedAt }
   meta: freshMeta(),
 };
 
@@ -111,6 +133,7 @@ export const sharedSettings = () => ({
   zones: state.zones,
   categories: state.categories,
   printedUpTo: state.meta.printedUpTo,
+  expiryWarn: state.meta.expiryWarn,
   modifiedAt: state.meta.settingsModifiedAt ?? 0,
 });
 
@@ -126,7 +149,24 @@ function emit() {
 export async function init() {
   db = await openDB();
   await loadAll();
+  if (demoFlag() === 'fresh') {
+    await loadDemo();
+    localStorage.setItem(DEMO_KEY, 'on');
+  }
   navigator.storage?.persist?.().catch(() => {});
+}
+
+// Switching starts the app afresh, so nothing of the other mode – like the
+// online sync of the real data – keeps running. Each demo starts anew.
+export function setDemo(on) {
+  try {
+    if (on) localStorage.setItem(DEMO_KEY, 'fresh');
+    else localStorage.removeItem(DEMO_KEY);
+  } catch {
+    throw new Error('Der Demo-Modus braucht lokalen Speicher, der in diesem Browser gesperrt ist.');
+  }
+  history.replaceState({ depth: 0 }, '', `${location.pathname}${location.search}#/`);
+  location.reload();
 }
 
 async function loadAll() {
@@ -188,6 +228,11 @@ export const boxesOfKind = (kind) => state.boxes.filter((b) => b.kind === kind).
 export const unplacedBoxes = () => state.boxes.filter((b) => !b.location).sort(byNumber);
 export const awayBoxes = () => state.boxes.filter((b) => b.location?.away).sort(byNumber);
 export const boxesInCategory = (id) => state.boxes.filter((b) => (b.category ?? null) === id).sort(byNumber);
+// Expired or expiring within the warning time, soonest first.
+export const expiringBoxes = () =>
+  state.boxes
+    .filter((b) => ['expired', 'soon'].includes(expiryState(b.expiry, state.meta.expiryWarn)))
+    .sort((a, b) => a.expiry.localeCompare(b.expiry) || byNumber(a, b));
 export const recentBoxes = (n = 5) => [...state.boxes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, n);
 export const itemCount = () => state.boxes.reduce((n, b) => n + b.items.length, 0);
 
@@ -200,7 +245,7 @@ export const nextNumber = () => state.boxes.reduce((max, b) => Math.max(max, b.n
 
 export function locLong(loc) {
   if (!loc) return 'Ohne festen Platz';
-  if (loc.away) return 'Nicht im Keller';
+  if (loc.away) return 'Nicht im Lager';
   if (loc.zone) return zoneById(loc.zone)?.name || `Stellplatz ${loc.zone}`;
   return `Regal ${loc.shelf} · Boden ${loc.level}`;
 }
@@ -221,7 +266,7 @@ export function search(query) {
     const title = normalize(box.title);
     const items = box.items.map((it) => [it, normalize(it)]);
     const zone = box.location?.zone ? zoneById(box.location.zone)?.name : '';
-    const other = [box.notes, categoryById(box.category)?.name, locKey(box.location), zone].map(normalize);
+    const other = [box.notes, categoryById(box.category)?.name, locKey(box.location), zone, expiryLabel(box.expiry)].map(normalize);
     const numbers = [String(box.number), pad(box.number)];
     const matchedItems = new Set();
     let score = 0;
@@ -270,6 +315,7 @@ export function createBox(data) {
     category: data.category ?? null,
     location: data.location ?? null,
     items: data.items ?? [],
+    expiry: data.expiry ?? null,
     notes: (data.notes ?? '').trim(),
     photos: data.photos ?? [],
     createdAt: now,
@@ -480,11 +526,11 @@ export function removeCategory(id) {
   emit();
 }
 
-// The last printed number is shared so two phones don't print the same
-// labels; everything else in meta belongs to this device.
+// The last printed number (so two phones don't print the same labels) and the
+// expiry warning are shared; everything else in meta belongs to this device.
 export function setMeta(patch, { quiet = false } = {}) {
   Object.assign(state.meta, patch);
-  if ('printedUpTo' in patch) writeSettings();
+  if (SHARED_META.some((key) => key in patch)) writeSettings();
   else putSettings();
   if (!quiet) emit();
 }
@@ -554,6 +600,10 @@ export function applyRemote({ settings = null, boxes = [], removed = [] }) {
       changed = true;
     }
     state.meta.printedUpTo = Math.max(state.meta.printedUpTo, settings.printedUpTo ?? 0);
+    if (settings.expiryWarn && settings.expiryWarn !== state.meta.expiryWarn) {
+      state.meta.expiryWarn = settings.expiryWarn;
+      changed = true;
+    }
     state.meta.settingsModifiedAt = settings.modifiedAt ?? 0;
     state.meta.setupDone = true;
     putSettings();
@@ -588,6 +638,7 @@ export function adoptHousehold({ settings, boxes, household }) {
       setupDone: true,
       lastBackup: state.meta.lastBackup,
       printedUpTo: settings?.printedUpTo ?? 0,
+      expiryWarn: settings?.expiryWarn ?? 3,
       settingsModifiedAt: settings?.modifiedAt ?? 0,
       household,
     },
@@ -617,37 +668,49 @@ export async function importData(data) {
 export const resetAll = () => replaceAll({ shelves: [], zones: [], categories: [], meta: freshMeta(), boxes: [], photos: [] });
 
 // ---------------------------------------------------------------------------
-// Demo data, to try the app before the real cellar is done.
+// Demo data: a small pharmacy stockroom to try the app with (Mehr → Demo-Modus).
 
-// Boxes: [number, category, place, contents, notes]
+// Boxes: [number, category, place, contents, expiry in months from now, notes]
 const DEMO_BOXES = [
-  [1, 'weihnachten', 'A1', 'Christbaumkugeln rot, Christbaumkugeln gold, Lametta, Baumspitze, Strohsterne'],
-  [2, 'weihnachten', 'A1', 'Lichterkette innen (3×), Lichterkette außen, Verlängerungskabel, Zeitschaltuhr'],
-  [3, 'weihnachten', 'A2', 'Krippe mit Figuren, Adventskranz-Ständer, Schwibbogen, Räuchermännchen', 'Zerbrechlich – nicht unten hinstellen.'],
-  [4, 'deko', 'A3', 'Ostereier zum Aufhängen, Osterhasen, Eierbecher, Tischdecke Frühling'],
-  [5, 'deko', 'A3', 'Kürbis-Lichter, Hexenkostüm, Skelett-Kostüm Kinder, Spinnweben-Deko, Schminke'],
-  [6, 'kleidung', 'B1', 'Schneeanzug Gr. 110, Skihandschuhe, Mützen, Thermohosen'],
-  [7, 'kleidung', 'B2', 'Bodys Gr. 62–74, Strampler, Schlafsack 70 cm, Mützchen', 'Für die Cousine aufheben.'],
-  [8, 'kleidung', 'B2', 'Badehosen, Sommerkleider, Sonnenhüte, Flip-Flops, Strandtuch'],
-  [9, 'freizeit', 'D5', 'Skibrillen, Skihelme (2×), Skiunterwäsche, Skiwachs'],
-  [10, 'freizeit', 'C4', 'Zelt 4 Personen, Isomatten (3×), Gaskocher, Campinggeschirr, Stirnlampen'],
-  [11, 'werkzeug', 'C4', 'Akkubohrer, Bit-Set, Wasserwaage, Schraubendreher, Dübel & Schrauben'],
-  [12, 'elektronik', 'C2', 'HDMI-Kabel, USB-C-Ladegeräte, Mehrfachstecker, alte Handys, Router (alt)'],
-  [13, 'kinder', 'D3', 'Duplo-Steine, Lego City Polizeistation, Lego-Anleitungen'],
-  [14, 'haushalt', 'D2', 'Pappteller, Becher, Servietten, Luftballons, Girlanden'],
-  [15, 'dokumente', 'D6', 'Ordner Steuer 2019–2021, Ordner Steuer 2022–2024, Mietvertrag alt, Garantiebelege'],
-  [16, 'erinnerungen', 'D1', 'Fotoalben 1990–2005, Hochzeitsalbum, Kinderzeichnungen'],
-  [17, 'haushalt', 'none', 'Geschenkpapier, Schleifenband, Geschenktüten, Grußkarten'],
-  [18, 'haushalt', 'away', 'Raclette-Grill, Fondue-Set, Fonduegabeln', 'Gerade oben in der Küche.'],
+  [1, 'ueberbestand', 'A1', 'Ibuprofen 400 mg 50 St. (4×), Ibuprofen 400 mg 20 St. (6×), Paracetamol 500 mg 20 St. (5×)', 14],
+  [2, 'ueberbestand', 'A1', 'Halspastillen Salbei (10×), Halsspray (4×), Lutschtabletten Zink (6×)', -1, 'Abgelaufen – aussondern und retournieren.'],
+  [3, 'ueberbestand', 'A2', 'Nasenspray 0,1 % 10 ml (8×), Meerwasser-Nasenspray (6×), Nasensalbe (5×)', 2],
+  [4, 'ueberbestand', 'A2', 'Magnesium 400 Brausetabletten (5×), Vitamin D3 1000 I.E. (4×), Zink 25 mg (3×)', 9],
+  [5, 'aktion', 'A3', 'Sonnenschutz LSF 50 (12×), After-Sun-Lotion (6×), Insektenschutz-Spray (8×)', 20, 'Ab April in die Sichtwahl.'],
+  [6, 'aktion', 'A3', 'Erkältungsbad (6×), Erkältungsbalsam (8×), Taschentücher-Boxen (20×)', 1],
+  [7, 'buero', 'A4', 'Ordner Lieferscheine 2025, Ordner Lieferscheine 2026, Ordner Wartung & Prüfprotokolle'],
+  [8, 'werbung', 'A5', 'Schaufensterdeko Winter, Lichterketten, Adventskalender-Aufsteller'],
+  [9, 'kosmetik', 'B1', 'Handcreme (10×), Lippenpflege (24×), Tagescreme (6×)', 11],
+  [10, 'kosmetik', 'B2', 'Pflegeproben Gesichtspflege, Duschgel-Proben, Shampoo-Proben', 18],
+  [11, 'verband', 'B3', 'Mullbinden 8 cm (20×), Kompressen steril (10×), Pflasterstrips (15×), Fixierpflaster (6×)', 30],
+  [12, 'hilfsmittel', 'B5', 'Kniebandagen Gr. S–XL, Handgelenkbandagen, Musterkoffer Kompressionsstrümpfe'],
+  [13, 'rezeptur', 'C1', 'Kruken 50 g (40×), Kruken 100 g (30×), Tuben 50 ml (25×), Spatel, Rezepturetiketten'],
+  [14, 'rezeptur', 'C2', 'Basiscreme DAC (2×), Wollwachsalkoholsalbe (1×), Hydrophile Creme (1×)', 2, 'Prüfzertifikate im Rezeptur-Ordner.'],
+  [15, 'verbrauch', 'C3', 'Apothekentüten klein (2 Pakete), Apothekentüten groß (1 Paket), Kassenrollen (20×), Etikettenrollen (8×)'],
+  [16, 'werbung', 'C4', 'Kundenstopper-Plakate, Schaufensterdeko Frühling, Preisschilder, Kundenzeitschriften (Rest)'],
+  [17, 'ueberbestand', '@S1', 'Augentropfen kühl (6×), Probiotika kühl (4×)', 3, 'Kühlware: 2–8 °C.'],
+  [18, 'retouren', '@S2', 'Retoure Großhandel: beschädigte Packungen (3×), Falschlieferung Nasensalbe (2×)', null, 'Retourenschein liegt bei. Wird beim nächsten Botengang abgeholt.'],
+  [19, 'aktion', 'away', 'Herbstaktion Immunsystem: Vitamin C (10×), Zink (8×), Aufsteller', 6, 'Gerade in der Sichtwahl aufgebaut.'],
+  [20, 'kosmetik', 'none', 'Neue Lieferung Pflegeserie (12×)', 24, 'Noch nicht eingeräumt.'],
 ];
 
 // Loose items: [number, title, category, place, notes]
 const DEMO_ITEMS = [
-  [19, 'Weihnachtsbaum (künstlich)', 'weihnachten', '@S2', 'In der Originalhülle, 1,80 m, Baumständer liegt dabei.'],
-  [20, 'Kinderwagen', 'kinder', '@S1'],
-  [21, 'Großer Koffer', 'freizeit', 'B3', 'Steht im hohen unteren Fach.'],
-  [22, 'Schlitten', 'freizeit', '@S3'],
+  [21, 'Rollator (Vorführgerät)', 'hilfsmittel', '@S3'],
+  [22, 'Milchpumpe · Leihgerät 1', 'leihgeraete', 'B4', 'Nach Rückgabe reinigen, Hygieneset beilegen.'],
+  [23, 'Milchpumpe · Leihgerät 2', 'leihgeraete', 'away', 'Verliehen – Rückgabe laut Leihschein in der Warenwirtschaft.'],
+  [24, 'Babywaage · Leihgerät', 'leihgeraete', 'B4'],
+  [25, 'Inhaliergerät · Leihgerät', 'leihgeraete', 'B4'],
+  [26, 'Kundenstopper', 'werbung', '@S4', 'Bei Regen hereinholen.'],
 ];
+
+// "2027-03" for `months` months from now.
+function monthFromNow(months) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 export async function loadDemo() {
   const now = Date.now();
@@ -659,25 +722,28 @@ export async function loadDemo() {
     ...fields,
   });
   const boxes = [
-    ...DEMO_BOXES.map(([number, category, where, items, notes = ''], i) =>
-      entry(i, { kind: 'box', number, title: '', category, location: parseLocKey(where), items: items.split(', '), notes })),
+    ...DEMO_BOXES.map(([number, category, where, items, months = null, notes = ''], i) =>
+      entry(i, {
+        kind: 'box', number, title: '', category, location: parseLocKey(where), items: items.split(', '),
+        expiry: months == null ? null : monthFromNow(months), notes,
+      })),
     ...DEMO_ITEMS.map(([number, title, category, where, notes = ''], i) =>
-      entry(DEMO_BOXES.length + i, { kind: 'item', number, title, category, location: parseLocKey(where), items: [], notes })),
+      entry(DEMO_BOXES.length + i, { kind: 'item', number, title, category, location: parseLocKey(where), items: [], expiry: null, notes })),
   ];
   await replaceAll({
     shelves: [
       { id: 'A', note: 'Links neben der Tür', levels: 5 },
-      { id: 'B', note: 'Hohes Regal, linke Wand', levels: 3 },
-      { id: 'C', note: 'Rückwand', levels: 4 },
-      { id: 'D', note: 'Schmales Regal rechts', levels: 6 },
+      { id: 'B', note: 'Hohes Regal, Rückwand', levels: 6 },
+      { id: 'C', note: 'Schmales Regal rechts', levels: 4 },
     ],
     zones: [
-      { id: 'S1', name: 'Boden vor Regal C' },
-      { id: 'S2', name: 'Unter der Treppe' },
-      { id: 'S3', name: 'Wandhaken neben der Tür' },
+      { id: 'S1', name: 'Kühlschrank (2–8 °C)' },
+      { id: 'S2', name: 'Sperrlager' },
+      { id: 'S3', name: 'Boden vor Regal B' },
+      { id: 'S4', name: 'Keller' },
     ],
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })),
-    meta: { ...freshMeta(), setupDone: true, printedUpTo: 24, lastBackup: now },
+    meta: { ...freshMeta(), setupDone: true, printedUpTo: 30, lastBackup: now },
     boxes,
     photos: [],
   });

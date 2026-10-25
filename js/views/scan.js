@@ -5,7 +5,7 @@
 import { html, icon, promptDialog } from '../ui.js';
 import { badge, placeCode } from '../components.js';
 import { boxByNumber, boxById, shelfById, zoneById, boxesAt, boxesInZone, locLong } from '../store.js';
-import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel } from '../format.js';
+import { pad, boxTitle, unitName, plural, sameLoc, unitsLabel, expiryLabel } from '../format.js';
 import { parseCode } from '../qr.js';
 import { navigate } from '../router.js';
 import { haptic } from '../haptics.js';
@@ -21,7 +21,7 @@ function cardFor(state) {
       return html`
         <div class="scan-card-main">
           ${badge(box)}
-          <span class="cell-text"><span class="cell-title">${boxTitle(box)}</span><span class="cell-sub">${locLong(box.location)}</span></span>
+          <span class="cell-text"><span class="cell-title">${boxTitle(box)}</span><span class="cell-sub">${locLong(box.location)}${box.expiry ? ` · Verfall ${expiryLabel(box.expiry)}` : ''}</span></span>
         </div>
         <p class="scan-tip">${icon('scan')} Jetzt einen Boden oder Stellplatz scannen, um sie dort einzulagern.</p>
         <div class="scan-card-actions">
@@ -73,7 +73,7 @@ function cardFor(state) {
       return html`
         <div class="scan-card-main">
           <span class="scan-check">${icon('people')}</span>
-          <span class="cell-text"><span class="cell-title">Haushalt beitreten</span><span class="cell-sub">Code ${formatCode(state.code)}</span></span>
+          <span class="cell-text"><span class="cell-title">Team beitreten</span><span class="cell-sub">Code ${formatCode(state.code)}</span></span>
         </div>
         <div class="scan-card-actions">
           <button class="pill-btn glass" data-scan="dismiss">Abbrechen</button>

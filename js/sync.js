@@ -1,4 +1,5 @@
-// Online sync: several devices share one "household" in Firebase Firestore.
+// Online sync: several devices share one "household" in Firebase Firestore
+// (shown as "Team" in the pharmacy edition).
 // The app stays local-first and always works from its own IndexedDB. This
 // module mirrors local changes into the household and applies changes made
 // on other devices. Firestore keeps writes made offline (also across app
@@ -44,7 +45,7 @@ function setStatus(next, message = '') {
 
 function report(err) {
   console.error(err);
-  setStatus('error', err.code === 'permission-denied' ? 'Kein Zugriff auf den Haushalt.' : err.message);
+  setStatus('error', err.code === 'permission-denied' ? 'Kein Zugriff auf das Team.' : err.message);
 }
 
 function withTimeout(promise) {
@@ -309,7 +310,7 @@ export async function createHousehold(name) {
 export async function joinHousehold(code) {
   await connect();
   const household = await withTimeout(fb.getDoc(ref(code)));
-  if (!household.exists()) throw new Error('Diesen Haushalt gibt es nicht. Bitte prüfe den Code.');
+  if (!household.exists()) throw new Error('Dieses Team gibt es nicht. Bitte prüfe den Code.');
   if (!household.data().members?.includes(uid)) {
     await withTimeout(fb.setDoc(ref(code), { members: fb.arrayUnion(uid) }, { merge: true }));
   }

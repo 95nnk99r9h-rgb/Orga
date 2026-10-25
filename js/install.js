@@ -3,7 +3,7 @@
 
 import { html, icon, openSheet } from './ui.js';
 
-const HINT_KEY = 'fundort.installHintDismissed';
+const HINT_KEY = 'fundort-apotheke.installHintDismissed';
 
 export const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 // iPadOS reports itself as a Mac, so check for touch as well.
@@ -68,7 +68,7 @@ export async function install() {
       <div class="install-hero">
         <img src="icons/icon-180.png" alt="" width="84" height="84">
         <h3>Fundort installieren</h3>
-        <p>Ein paar Taps in Safari – danach startet Fundort wie jede andere App, im Vollbild und auch ohne Netz im Keller.</p>
+        <p>Ein paar Taps in Safari – danach startet Fundort wie jede andere App, im Vollbild und auch ohne Netz im Lager.</p>
       </div>
       <div class="list">
         ${step(1, html`Auf ${icon('share', 'inline')} „Teilen“ tippen`, 'In der Safari-Leiste. Bei neueren iOS-Versionen zuerst auf „•••“ tippen.')}

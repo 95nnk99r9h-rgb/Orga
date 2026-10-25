@@ -5,11 +5,14 @@
 
 import { html, icon } from '../ui.js';
 import { navBar, largeTitle, newBoxButton, boxRow, emptyState, highlight, catAttrs, hydratePhotos } from '../components.js';
-import { state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById } from '../store.js';
-import { normalize, boxTitle, unitsLabel } from '../format.js';
+import {
+  state, search, boxesOfKind, unplacedBoxes, awayBoxes, boxesInCategory, recentBoxes, categoryById, expiringBoxes,
+} from '../store.js';
+import { normalize, boxTitle, unitsLabel, warnSpan } from '../format.js';
 import { install, dismissInstallHint } from '../install.js';
 
 const FILTERS = {
+  expiry: { label: 'Verfall', icon: 'calendar', color: 'red', boxes: expiringBoxes },
   box: { label: 'Kisten', icon: 'box', color: 'blue', boxes: () => boxesOfKind('box') },
   item: { label: 'Einzelstücke', icon: 'item', color: 'indigo', boxes: () => boxesOfKind('item') },
   none: { label: 'Ohne Platz', icon: 'tray', color: 'orange', boxes: unplacedBoxes },
@@ -47,7 +50,7 @@ function searchResults(query) {
     return emptyState({
       iconName: 'search',
       title: `Keine Treffer für „${query.trim()}“`,
-      text: 'Versuche einen Wortteil, z. B. „licht“ statt „Lichterketten“.',
+      text: 'Versuche einen Wortteil, z. B. „ibu“ statt „Ibuprofen“.',
     });
   }
   const terms = normalize(query).split(/\s+/).filter(Boolean);
@@ -71,7 +74,7 @@ function recents() {
   return html`
     <h3 class="section-head">Zuletzt geändert</h3>
     <div class="list">${recentBoxes(6).map((b) => boxRow(b))}</div>
-    <p class="section-foot">Suche nach Gegenständen, Titeln, Nummern („42“), Plätzen („B3“, „Treppe“) oder Kategorien.</p>`;
+    <p class="section-foot">Suche nach Artikeln, PZN, Nummern („42“), Plätzen („B3“, „Kühlschrank“), Kategorien oder Verfall („03/2027“).</p>`;
 }
 
 function filtered(filter) {
@@ -84,7 +87,10 @@ function filtered(filter) {
       </button>
       <span class="filter-count">${unitsLabel(boxes)}</span>
     </div>
-    ${boxes.length ? html`<div class="list">${boxes.map((b) => boxRow(b))}</div>` : emptyState({ iconName: 'checkCircle', title: 'Nichts zu sehen', text: 'In dieser Auswahl gibt es gerade nichts.' })}`;
+    ${boxes.length ? html`<div class="list">${boxes.map((b) => boxRow(b))}</div>` : emptyState({ iconName: 'checkCircle', title: 'Nichts zu sehen', text: 'In dieser Auswahl gibt es gerade nichts.' })}
+    ${filter === 'expiry'
+      ? html`<p class="section-foot">Alles, was abgelaufen ist oder ${warnSpan(state.meta.expiryWarn)} abläuft – das Früheste zuerst. Die Vorwarnzeit stellst du unter „Mehr“ ein.</p>`
+      : ''}`;
 }
 
 // Each page keeps its own query, filter and search state.

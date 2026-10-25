@@ -1,7 +1,7 @@
 // Appearance: follow the system ("auto") or force light or dark. The choice
 // is a per-device preference; index.html applies it before the first paint.
 
-const KEY = 'fundort.theme';
+const KEY = 'fundort-apotheke.theme';
 const BAR = { light: '#f2f2f7', dark: '#000000' };
 
 export const THEMES = [

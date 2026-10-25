@@ -1,19 +1,20 @@
-// First launch: explain the idea in three lines, then describe the cellar –
+// First launch: explain the idea in a few lines, then describe the stockroom –
 // each shelf with its own number of levels, plus spots outside the shelves.
 
-import { html, icon, toast } from '../ui.js';
+import { html, icon, toast, alertDialog } from '../ui.js';
 import { catAttrs, stepper } from '../components.js';
-import { setupCellar, loadDemo, shelfLetter, MAX_LEVELS, ZONE_SUGGESTIONS } from '../store.js';
+import { setupCellar, setDemo, shelfLetter, MAX_LEVELS, ZONE_SUGGESTIONS } from '../store.js';
 import { plural } from '../format.js';
 import { switchTab, refresh, navigate } from '../router.js';
 import { syncConfigured } from '../sync.js';
 
-const setup = { levels: [5, 5, 4], zones: new Set(['Unter der Treppe']) };
+const setup = { levels: [5, 5, 4], zones: new Set(['Kühlschrank (2–8 °C)', 'Sperrlager']) };
 
 const FEATURES = [
   ['tag', 'blue', 'Nummer drauf', 'Jede Kiste und jedes große Einzelstück bekommt eine feste Nummer mit QR-Code.'],
   ['shelves', 'orange', 'Platz zuweisen', 'Jeder Regalboden hat eine Adresse wie „B3“, freie Stellplätze heißen S1, S2 …'],
-  ['search', 'green', 'Sofort finden', 'Tippe „Lichterkette“ und sieh, wo sie liegt.'],
+  ['search', 'green', 'Sofort finden', 'Tippe „Ibuprofen“ oder eine PZN und sieh, wo die Kiste steht.'],
+  ['calendar', 'red', 'Verfall im Blick', 'Die App zeigt, was bald abläuft – für die monatliche Verfallskontrolle.'],
 ];
 
 export default {
@@ -25,7 +26,7 @@ export default {
       <main class="page welcome">
         <img class="app-icon" src="icons/icon.svg" alt="" width="96" height="96">
         <h1>Willkommen bei Fundort</h1>
-        <p class="lead center">Ordnung im Keller – mit Nummern, Etiketten und einer App, die sich alles merkt.</p>
+        <p class="lead center">Ordnung im Apothekenlager – mit Nummern, Etiketten und einer App, die sich alles merkt.</p>
 
         <div class="features">
           ${FEATURES.map(
@@ -63,17 +64,17 @@ export default {
             (name) => html`<button type="button" class="chip zone-chip" data-zone-name="${name}" aria-pressed="${String(setup.zones.has(name))}">${icon(setup.zones.has(name) ? 'check' : 'plus')}${name}</button>`,
           )}
         </div>
-        <p class="section-foot">Für Großes wie Weihnachtsbaum, Koffer oder Kinderwagen. Eigene Stellplätze kannst du später unter „Mehr → Lagerorte“ anlegen.</p>
+        <p class="section-foot">Für Kühlware, Sperrware oder Großes wie Rollatoren und Aufsteller. Eigene Stellplätze kannst du später unter „Mehr → Lagerorte“ anlegen.</p>
 
         <div class="welcome-actions">
-          <button class="btn" data-action="setup">Keller einrichten</button>
-          ${syncConfigured() ? html`<button class="btn secondary" data-action="join">${icon('people')} Einem Haushalt beitreten</button>` : ''}
-          <button class="btn plain" data-action="demo">${icon('sparkles')} Erst mit Beispieldaten ausprobieren</button>
+          <button class="btn" data-action="setup">Lager einrichten</button>
+          ${syncConfigured() ? html`<button class="btn secondary" data-action="join">${icon('people')} Einem Team beitreten</button>` : ''}
+          <button class="btn plain" data-action="demo">${icon('sparkles')} Erst im Demo-Modus ausprobieren</button>
         </div>
       </main>`;
   },
   mount(root) {
-    root.addEventListener('click', async (e) => {
+    root.addEventListener('click', (e) => {
       const step = e.target.closest('[data-step]');
       if (step) {
         const s = step.closest('[data-stepper]');
@@ -96,13 +97,15 @@ export default {
       if (action === 'setup') {
         setupCellar(setup.levels, ZONE_SUGGESTIONS.filter((name) => setup.zones.has(name)));
         switchTab('/');
-        toast('Keller eingerichtet');
+        toast('Lager eingerichtet');
       }
       if (action === 'join') return navigate('/mehr/haushalt');
       if (action === 'demo') {
-        await loadDemo();
-        switchTab('/');
-        toast('Beispielkeller geladen', 'sparkles');
+        try {
+          setDemo(true);
+        } catch (err) {
+          alertDialog({ title: 'Geht gerade nicht', message: err.message });
+        }
       }
     });
   },

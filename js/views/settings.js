@@ -1,11 +1,12 @@
-// "Mehr" tab: shelves, categories, backups and the system guide.
+// "Mehr" tab: shelves, categories, expiry warning, demo mode, backups and
+// the system guide.
 
 import { html, icon, openSheet, confirmDialog, alertDialog, toast, shareOrDownload, pickFile } from '../ui.js';
-import { navBar, largeTitle, catAttrs, stepper } from '../components.js';
+import { navBar, largeTitle, catAttrs, stepper, toggleRow } from '../components.js';
 import {
-  state, COLORS, MAX_LEVELS, ZONE_SUGGESTIONS, addShelf, updateShelf, removeShelf, addZone, updateZone, removeZone,
-  boxesAt, boxesInZone, saveCategory, removeCategory, categoryById, boxesInCategory, exportData, importData, resetAll,
-  loadDemo, setMeta,
+  state, COLORS, MAX_LEVELS, ZONE_SUGGESTIONS, EXPIRY_WARN_OPTIONS, addShelf, updateShelf, removeShelf, addZone, updateZone,
+  removeZone, boxesAt, boxesInZone, saveCategory, removeCategory, categoryById, boxesInCategory, exportData, importData,
+  resetAll, loadDemo, setMeta, isDemo, setDemo,
 } from '../store.js';
 import { dateLabel, unitsLabel } from '../format.js';
 import { navigate, refresh } from '../router.js';
@@ -29,7 +30,7 @@ async function doExport() {
   const data = await exportData();
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const day = new Date().toISOString().slice(0, 10);
-  if (await shareOrDownload(blob, `fundort-backup-${day}.json`)) {
+  if (await shareOrDownload(blob, `fundort-apotheke-backup-${day}.json`)) {
     setMeta({ lastBackup: Date.now() });
     toast('Backup erstellt', 'download');
   }
@@ -46,7 +47,7 @@ async function doImport() {
   }
   if (!(await confirmDialog({
     title: 'Backup wiederherstellen?',
-    message: `Das Backup enthält ${unitsLabel(data.boxes ?? [])}. ${state.meta.household ? 'Die Daten im Haushalt werden für alle Geräte ersetzt.' : 'Alle aktuellen Daten auf diesem Gerät werden ersetzt.'}`,
+    message: `Das Backup enthält ${unitsLabel(data.boxes ?? [])}. ${state.meta.household ? 'Die Daten des Teams werden für alle Geräte ersetzt.' : 'Alle aktuellen Daten auf diesem Gerät werden ersetzt.'}`,
     confirm: 'Ersetzen',
     destructive: true,
   }))) return;
@@ -58,17 +59,43 @@ async function doImport() {
   }
 }
 
+function demoSection() {
+  return html`
+    <h3 class="section-head">Ausprobieren</h3>
+    <div class="list">
+      ${toggleRow({ name: 'demo', label: 'Demo-Modus', checked: isDemo(), sub: 'Beispielapotheke mit Kisten, Verfall & Leihgeräten' })}
+      ${isDemo() ? row({ iconName: 'refresh', color: 'purple', title: 'Beispieldaten zurücksetzen', action: 'demo-reset' }) : ''}
+    </div>
+    <p class="section-foot">${isDemo()
+      ? 'Du siehst gerade Beispieldaten. Änderungen hier betreffen nur die Demo; deine eigenen Daten kommen zurück, sobald du den Demo-Modus ausschaltest.'
+      : 'Zum Ausprobieren und Vorführen: Die Demo hat einen eigenen Speicher, deine Daten bleiben unberührt.'}</p>`;
+}
+
+function dataSection() {
+  const backup = state.meta.lastBackup ? `Letztes Backup: ${dateLabel(state.meta.lastBackup)}.` : 'Noch kein Backup erstellt.';
+  return html`
+    <h3 class="section-head">Daten</h3>
+    <div class="list">
+      ${row({ iconName: 'share', color: 'blue', title: 'Backup erstellen', action: 'export' })}
+      ${row({ iconName: 'download', color: 'teal', title: 'Backup wiederherstellen', action: 'import' })}
+    </div>
+    <p class="section-foot">${state.meta.household ? 'Die Daten werden mit deinem Team abgeglichen und liegen zusätzlich auf diesem Gerät.' : 'Alle Daten liegen nur auf diesem Gerät.'} ${backup} Sichere das Backup z. B. in iCloud Drive.</p>
+
+    <div class="list spaced">
+      <button class="cell destructive center" data-action="reset">Alle Daten löschen</button>
+    </div>`;
+}
+
 export const moreView = {
   tab: 'more',
   title: 'Mehr',
   syncAware: true, // shows the sync status
   render() {
-    const backup = state.meta.lastBackup ? `Letztes Backup: ${dateLabel(state.meta.lastBackup)}.` : 'Noch kein Backup erstellt.';
     return html`
       ${navBar({ title: 'Mehr' })}
       <main class="page">
         ${largeTitle('Mehr')}
-        <h3 class="section-head">Keller</h3>
+        <h3 class="section-head">Lager</h3>
         <div class="list">
           ${row({ iconName: 'shelves', color: 'blue', title: 'Lagerorte', detail: `${state.shelves.length} + ${state.zones.length}`, href: '#/mehr/regale' })}
           ${row({ iconName: 'circles', color: 'orange', title: 'Kategorien', detail: String(state.categories.length), href: '#/mehr/kategorien' })}
@@ -82,6 +109,12 @@ export const moreView = {
             </div>`
           : ''}
 
+        <h3 class="section-head">Verfall-Warnung</h3>
+        <div class="seg theme-seg" role="group" aria-label="Verfall-Warnung">
+          ${EXPIRY_WARN_OPTIONS.map(([months, label]) => html`<button type="button" data-warn="${months}" aria-pressed="${String(state.meta.expiryWarn === months)}">${label}</button>`)}
+        </div>
+        <p class="section-foot">So lange vorher erscheint eine Kiste unter „Verfall“ im Lager. Gilt für alle Geräte im Team.</p>
+
         <h3 class="section-head">Darstellung</h3>
         <div class="seg theme-seg" role="group" aria-label="Darstellung">
           ${THEMES.map(([key, label]) => html`<button type="button" data-theme-set="${key}" aria-pressed="${String(getTheme() === key)}">${label}</button>`)}
@@ -91,42 +124,47 @@ export const moreView = {
         <h3 class="section-head">Anleitung</h3>
         <div class="list">
           ${row({ iconName: 'book', color: 'green', title: 'Das Fundort-System', href: '#/system' })}
-          ${!state.boxes.length && !state.meta.household ? row({ iconName: 'sparkles', color: 'purple', title: 'Beispieldaten laden', action: 'demo' }) : ''}
         </div>
 
-        <h3 class="section-head">Daten</h3>
-        <div class="list">
-          ${row({ iconName: 'share', color: 'blue', title: 'Backup erstellen', action: 'export' })}
-          ${row({ iconName: 'download', color: 'teal', title: 'Backup wiederherstellen', action: 'import' })}
-        </div>
-        <p class="section-foot">${state.meta.household ? 'Die Daten werden mit deinem Haushalt abgeglichen und liegen zusätzlich auf diesem Gerät.' : 'Alle Daten liegen nur auf diesem Gerät.'} ${backup} Sichere das Backup z. B. in iCloud Drive.</p>
-
-        <div class="list spaced">
-          <button class="cell destructive center" data-action="reset">Alle Daten löschen</button>
-        </div>
-        <p class="meta-foot">Fundort 1.0 · Ordnung für Keller, Dachboden &amp; Garage</p>
+        ${demoSection()}
+        ${isDemo() ? '' : dataSection()}
+        <p class="meta-foot">Fundort für Apotheken 1.0 · Ordnung im Lager</p>
       </main>`;
   },
   mount(root) {
+    root.querySelector('[name="demo"]').addEventListener('change', (e) => {
+      try {
+        setDemo(e.target.checked);
+      } catch (err) {
+        e.target.checked = !e.target.checked;
+        alertDialog({ title: 'Geht gerade nicht', message: err.message });
+      }
+    });
     root.addEventListener('click', async (e) => {
       const theme = e.target.closest('[data-theme-set]')?.dataset.themeSet;
       if (theme) {
         setTheme(theme);
         return refresh();
       }
+      const warn = e.target.closest('[data-warn]')?.dataset.warn;
+      if (warn) return setMeta({ expiryWarn: Number(warn) });
       const action = e.target.closest('[data-action]')?.dataset.action;
       if (action === 'install') install();
       if (action === 'export') doExport();
       if (action === 'import') doImport();
-      if (action === 'demo') {
+      if (action === 'demo-reset' && (await confirmDialog({
+        title: 'Beispieldaten zurücksetzen?',
+        message: 'Alles, was du in der Demo geändert hast, wird verworfen.',
+        confirm: 'Zurücksetzen',
+      }))) {
         await loadDemo();
-        toast('Beispielkeller geladen', 'sparkles');
+        toast('Beispieldaten zurückgesetzt', 'sparkles');
         navigate('/', { replace: true });
       }
       if (action === 'reset' && (await confirmDialog({
         title: 'Alle Daten löschen?',
         message: state.meta.household
-          ? 'Dieses Gerät verlässt den Haushalt und löscht alles, was hier gespeichert ist. Im Haushalt und auf den anderen Geräten bleibt alles erhalten.'
+          ? 'Dieses Gerät verlässt das Team und löscht alles, was hier gespeichert ist. Im Team und auf den anderen Geräten bleibt alles erhalten.'
           : 'Kisten, Einzelstücke, Fotos, Lagerorte und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
         confirm: 'Alles löschen',
         destructive: true,
@@ -169,13 +207,13 @@ export const shelfSettingsView = {
         <button class="btn secondary" data-action="add">${icon('plus')} Regal hinzufügen</button>
 
         <h2 class="title2">Stellplätze</h2>
-        <p class="lead">Für alles, was nicht im Regal steht: Großes auf dem Boden, Wandhaken, Ecken – oder Orte außerhalb des Kellers wie Garage und Dachboden. Sie heißen S1, S2 …</p>
+        <p class="lead">Für alles, was nicht im Regal steht: Kühlschrank, Sperrlager, Großes auf dem Boden – oder Orte außerhalb des Lagers wie Keller und Büro. Sie heißen S1, S2 …</p>
         <div class="list">
           ${state.zones.map(
             (z) => html`
               <div class="cell zone-edit">
                 <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id} ansehen">${z.id}</a>
-                <input data-zone="${z.id}" value="${z.name}" placeholder="z. B. unter der Treppe" enterkeyhint="done" aria-label="Name von ${z.id}">
+                <input data-zone="${z.id}" value="${z.name}" placeholder="z. B. Kühlschrank" enterkeyhint="done" aria-label="Name von ${z.id}">
                 <span class="cell-detail small">${boxesInZone(z.id).length || ''}</span>
                 <button class="icon-btn danger" data-remove-zone="${z.id}" aria-label="Stellplatz ${z.id} entfernen">${icon('trash')}</button>
               </div>`,
@@ -264,7 +302,7 @@ function openCategoryEditor(cat = null) {
       <div class="list">
         <label class="cell field">
           <span class="field-label">Name</span>
-          <input name="name" value="${cat?.name ?? ''}" placeholder="z. B. Garten" enterkeyhint="done">
+          <input name="name" value="${cat?.name ?? ''}" placeholder="z. B. Homöopathie" enterkeyhint="done">
         </label>
       </div>
       <h3 class="section-head">Farbe</h3>
@@ -309,7 +347,7 @@ export const categorySettingsView = {
       ${navBar({ title: 'Kategorien', back: '/mehr', right: html`<button class="circle-btn glass" data-action="add" aria-label="Neue Kategorie">${icon('plus')}</button>` })}
       <main class="page">
         ${largeTitle('Kategorien')}
-        <p class="lead">Jede Kategorie hat eine Farbe. Sie erscheint auf dem Etikett und in der App – so erkennst du Weihnachtskisten schon von Weitem.</p>
+        <p class="lead">Jede Kategorie hat eine Farbe. Sie erscheint auf dem Etikett und in der App – so erkennst du Retouren oder Aktionsware schon von Weitem.</p>
         <div class="list">
           ${state.categories.map(
             (c) => html`

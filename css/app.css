@@ -686,6 +686,22 @@ button.cell:active {
   margin-right: 2px;
 }
 
+.exp-tag {
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+/* Mixed with the text colour so the small type stays readable on white. */
+.exp-tag.soon,
+.exp-note.soon {
+  color: color-mix(in srgb, var(--c-orange) 78%, var(--label));
+}
+
+.exp-tag.expired,
+.exp-note.expired {
+  color: color-mix(in srgb, var(--c-red) 85%, var(--label));
+}
+
 .row-thumb {
   width: 44px;
   height: 44px;
@@ -820,6 +836,15 @@ button.cell:active {
   padding: 12px 16px;
   margin-top: 20px;
   color: var(--label);
+}
+
+button.notice {
+  width: 100%;
+  text-align: left;
+}
+
+.notice > .pill-btn {
+  flex: none;
 }
 
 .filter-bar {

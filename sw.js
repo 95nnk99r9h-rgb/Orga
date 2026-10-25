@@ -1,7 +1,10 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
+// Only this edition's own caches are cleaned up, so other Fundort apps on the
+// same web address keep theirs.
 
-const VERSION = 'fundort-v10';
+const PREFIX = 'fundort-apotheke-';
+const VERSION = `${PREFIX}v1`;
 const ASSETS = [
   './',
   'index.html',
@@ -49,7 +52,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

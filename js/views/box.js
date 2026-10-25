@@ -7,7 +7,10 @@ import {
   state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
   nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong,
 } from '../store.js';
-import { pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
+import {
+  pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime,
+  parseExpiry, expiryLabel, expiryState, expiryNote,
+} from '../format.js';
 import { processImage } from '../photos.js';
 import { navigate, back, currentPath } from '../router.js';
 import { presetLabels } from './labels.js';
@@ -40,6 +43,24 @@ function locationCard(loc) {
     </section>`;
 }
 
+const EXPIRY_COLORS = { expired: 'red', soon: 'orange', ok: 'green' };
+
+function expiryCard(box) {
+  const s = expiryState(box.expiry, state.meta.expiryWarn);
+  return html`
+    <h3 class="section-head">Verfall</h3>
+    <div class="list">
+      <button class="cell" data-action="edit">
+        <span class="icon-tile" ${catAttrs(EXPIRY_COLORS[s])}>${icon('calendar')}</span>
+        <span class="cell-text">
+          <span class="cell-title">Verwendbar bis ${expiryLabel(box.expiry)}</span>
+          <span class="cell-sub exp-note ${s}">${expiryNote(box.expiry)}</span>
+        </span>
+        ${icon('chevron', 'chev')}
+      </button>
+    </div>`;
+}
+
 export const boxView = {
   title: ({ number }) => `Nr. ${pad(number)}`,
 
@@ -66,6 +87,8 @@ export const boxView = {
 
         ${locationCard(box.location)}
 
+        ${box.expiry ? expiryCard(box) : ''}
+
         <h3 class="section-head">Fotos</h3>
         <div class="photo-strip">
           ${box.photos.map(
@@ -91,7 +114,7 @@ export const boxView = {
               )}
               <form class="cell add-row" data-form="add-item">
                 ${icon('plus', 'add-icon')}
-                <input name="item" placeholder="Gegenstand hinzufügen" autocomplete="off" enterkeyhint="done" aria-label="Gegenstand hinzufügen">
+                <input name="item" placeholder="Artikel hinzufügen" autocomplete="off" enterkeyhint="done" aria-label="Artikel hinzufügen">
               </form>
             </div>`}
 
@@ -231,7 +254,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         <button type="button" data-kind="box" aria-pressed="${String(draft.kind === 'box')}">${icon('box')} Kiste</button>
         <button type="button" data-kind="item" aria-pressed="${String(draft.kind === 'item')}">${icon('item')} Einzelstück</button>
       </div>
-      <p class="section-foot">Einzelstück: etwas Großes ohne Kiste, z. B. Weihnachtsbaum, Koffer oder Kinderwagen.</p>
+      <p class="section-foot">Einzelstück: etwas Großes ohne Kiste, z. B. Rollator, Aufsteller oder ein Leihgerät.</p>
 
       <div class="list spaced-sm">
         <label class="cell field">
@@ -240,10 +263,14 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         </label>
         <label class="cell field" data-only="item" ${draft.kind === 'item' ? '' : 'hidden'}>
           <span class="field-label">Titel</span>
-          <input name="title" value="${box?.title ?? ''}" placeholder="z. B. Weihnachtsbaum, Koffer" enterkeyhint="done">
+          <input name="title" value="${box?.title ?? ''}" placeholder="z. B. Rollator, Milchpumpe" enterkeyhint="done">
+        </label>
+        <label class="cell field">
+          <span class="field-label">Verfall</span>
+          <input name="expiry" inputmode="numeric" value="${expiryLabel(box?.expiry)}" placeholder="MM/JJJJ" enterkeyhint="done">
         </label>
       </div>
-      <p class="section-foot">Die Nummer steht auf dem Etikett und bleibt für immer gleich.</p>
+      <p class="section-foot">Die Nummer steht auf dem Etikett und bleibt für immer gleich. Beim Verfall zählt der früheste Artikel – leer lassen, wenn nichts abläuft.</p>
 
       <h3 class="section-head">Kategorie</h3>
       <div class="chips">
@@ -261,15 +288,16 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
       <div data-only="box" ${draft.kind === 'box' ? '' : 'hidden'}>
         <h3 class="section-head">Inhalt</h3>
         <div class="list">
-          <textarea name="items" rows="4" placeholder="${'Ein Gegenstand pro Zeile, z. B.\nLichterkette\nChristbaumkugeln'}">${(box?.items ?? []).join('\n')}</textarea>
+          <textarea name="items" rows="4" placeholder="${'Ein Artikel pro Zeile, z. B.\nIbuprofen 400 mg 20 St. (6×)\nNasenspray 0,1 % 10 ml (8×)'}">${(box?.items ?? []).join('\n')}</textarea>
         </div>
-        <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile.</p>
+        <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile und PZN.</p>
       </div>
 
       <h3 class="section-head">Notizen</h3>
       <div class="list">
-        <textarea name="notes" rows="2" placeholder="z. B. zerbrechlich, gehört Oma">${box?.notes ?? ''}</textarea>
+        <textarea name="notes" rows="2" placeholder="z. B. Charge, kühl lagern, Retoure bis …">${box?.notes ?? ''}</textarea>
       </div>
+      <p class="section-foot">Bitte keine Patientendaten eintragen – also keine Namen oder Bestellungen von Kundinnen und Kunden.</p>
     </form>`;
 
   const sheet = openSheet({
@@ -284,6 +312,14 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         hydratePhotos(strip);
       };
       hydratePhotos(strip);
+
+      // Typed as digits on the number pad; the slash comes by itself.
+      el.querySelector('[name="expiry"]').addEventListener('input', (e) => {
+        let v = e.target.value.replace(/[^\d/.]/g, '').replace('.', '/');
+        if (/^\d\//.test(v)) v = `0${v}`;
+        const digits = v.replace(/\D/g, '').slice(0, 6);
+        e.target.value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+      });
 
       // Boxes get contents, loose items a title. Switching only hides the
       // other field, so nothing typed is lost until saving.
@@ -340,6 +376,8 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
     async done(el) {
       const form = el.querySelector('form');
       const isItem = draft.kind === 'item';
+      const expiry = parseExpiry(form.expiry.value);
+      if (form.expiry.value.trim() && !expiry) throw new Error('Bitte gib den Verfall als Monat und Jahr ein, z. B. 03/2027.');
       const data = {
         kind: draft.kind,
         number: Number(form.number.value.trim()),
@@ -347,6 +385,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         category: draft.category,
         location: isValidLocation(draft.location) ? draft.location : null,
         items: isItem ? [] : splitItems(form.items.value),
+        expiry,
         notes: form.notes.value.trim(),
       };
       const saved = isNew ? createBox(data) : updateBox(box.id, data);

@@ -54,7 +54,7 @@ export function zoneCard() {
         <span class="icon-tile" ${catAttrs('green')}>${icon('zone')}</span>
         <span class="cell-text">
           <span class="cell-title">Stellplätze anlegen</span>
-          <span class="cell-sub wrap">Für Großes ohne Regal, z. B. unter der Treppe oder in der Garage.</span>
+          <span class="cell-sub wrap">Für Kühlschrank, Sperrlager oder Großes ohne Regal wie Rollatoren und Aufsteller.</span>
         </span>
         ${icon('chevron', 'chev')}
       </a>`;
