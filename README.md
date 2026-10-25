@@ -1,7 +1,7 @@
 # Fundort – Ordnung im Keller
 
 **Kisten und große Teile nummerieren, Inhalt erfassen, alles sofort wiederfinden.**
-Eine schlichte Web-App im Apple-Stil, die sich wie eine native iPhone-App installieren lässt – plus ein einfaches System, mit dem aus unbeschrifteten Kisten ein Keller wird, in dem man alles findet.
+Eine Web-App mit eigenem Look – warmer Sand, Karton-Beige und Türkis, Nummern wie vom Etikettendrucker –, die sich wie eine native iPhone-App installieren lässt – plus ein einfaches System, mit dem aus unbeschrifteten Kisten ein Keller wird, in dem man alles findet.
 
 ![Fundort auf dem iPhone](docs/preview.png)
 
@@ -94,6 +94,13 @@ Dieselbe Adresse funktioniert in Edge, Chrome, Firefox und Safari. Ab etwa 1024 
 - **Etiketten haltbar machen:** auf normales Papier drucken und mit breitem Klebeband oder Klebefolie überkleben, in selbstklebende Etikettentaschen stecken oder direkt auf Etikettenbögen drucken. Für Einzelstücke eignen sich kleine Etiketten als Anhänger (lochen, mit Kabelbinder befestigen).
 - **Ältere Daten** werden automatisch übernommen: Alles aus der ersten Version gilt als Kiste; ein früherer Kisten-Titel wird zur ersten Inhaltszeile, früheres Zubehör von Einzelstücken landet in den Notizen.
 
+## Design: „Kraft & Türkis“
+
+- **Farben:** Sand-Hintergrund mit feinem Punktraster, cremeweiße Karten, Text in tiefem Petrol statt Schwarz. Türkis ist die Akzentfarbe, Karton-Beige die zweite Farbe (Regalbretter, Stellplätze), Terrakotta steht für Löschen. Im Dunkelmodus („Nachtlager“) dunkles Petrol mit hellem Türkis.
+- **Schriften:** *Bricolage Grotesque* für Überschriften, *Figtree* für Text, *JetBrains Mono* für Nummern und Platz-Codes – auch auf den gedruckten Etiketten. Alle drei liegen in `fonts/` (SIL Open Font License) und werden nicht von Google geladen.
+- **Etiketten als roter Faden:** Nummern-Chips haben den Farbstreifen der gedruckten Etiketten, die Seite einer Kiste zeigt oben ihr Etikett mit QR-Code, Einzelstücke einen Anhänger mit Öse. Regalböden stehen auf Brettern, Stellplätze tragen Karton-Schilder.
+- **Bedienelemente:** kantige „Sticker“ mit Rahmen und hartem Schatten statt Glas-Effekten; die Tab-Leiste ist ein dunkles Dock mit türkiser Markierung, am Computer eine dunkle Seitenleiste.
+
 ## Entwicklung
 
 Kein Build-Schritt, keine Abhängigkeiten zur Laufzeit außer zwei mitgelieferten Bibliotheken.
@@ -125,6 +132,7 @@ js/theme.js           Darstellung: automatisch, hell oder dunkel
 js/views/*.js         Seiten: Lager (Start), Regal/Boden/Stellplatz, Kiste, Scannen, Etiketten, Mehr, System, Willkommen;
                       browse.js ist der Seitenrahmen mit Suche, Verlauf und Filtern
 icons/                App-Symbole und iOS-Startbildschirme (icons/splash)
+fonts/                Schriften (WOFF2, SIL Open Font License) – siehe fonts/README.md
 vendor/               qrcode-generator (MIT), jsQR (Apache 2.0), Firebase JS SDK (Apache 2.0, gebündelt)
 docs/                 Keller-Handbuch, Anleitung Online-Abgleich, Vorschaubild
 ```

@@ -1,31 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4FA3FF"/>
-      <stop offset="1" stop-color="#0058D6"/>
-    </linearGradient>
-    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#EEF4FF"/>
-    </linearGradient>
-    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#F4F8FF"/>
-      <stop offset="1" stop-color="#DCE8FF"/>
-    </linearGradient>
-    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#D5E4FF"/>
-      <stop offset="1" stop-color="#B9D1FF"/>
+      <stop offset="0" stop-color="#38CDBF"/>
+      <stop offset="1" stop-color="#1FAF9F"/>
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <g transform="translate(512 548)">
-    <ellipse cx="0" cy="268" rx="300" ry="34" fill="#003C99" opacity=".28"/>
-    <path d="M0 -262 L282 -126 L0 10 L-282 -126 Z" fill="url(#top)"/>
-    <path d="M-282 -126 L0 10 L0 282 L-282 146 Z" fill="url(#left)"/>
-    <path d="M282 -126 L0 10 L0 282 L282 146 Z" fill="url(#right)"/>
-    <path d="M-141 -194 L141 -58 L141 32 L96 10 L96 -36 L-186 -172 Z" fill="#9DBFFF" opacity=".55"/>
-    <!-- label on the front face -->
-    <path d="M-226 -40 L-56 42 L-56 166 L-226 84 Z" fill="#0A6CFF"/>
-    <path d="M-196 -2 L-86 51 M-196 38 L-110 80 M-196 78 L-140 105" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+  <!-- hard shadow -->
+  <g fill="#1E2B2A" transform="translate(30 30)">
+    <rect x="236" y="392" width="552" height="392" rx="30"/>
+    <rect x="204" y="300" width="616" height="128" rx="26"/>
+  </g>
+  <!-- box -->
+  <rect x="236" y="392" width="552" height="392" rx="30" fill="#D8BF96" stroke="#1E2B2A" stroke-width="28"/>
+  <rect x="204" y="300" width="616" height="128" rx="26" fill="#C7A673" stroke="#1E2B2A" stroke-width="28"/>
+  <!-- tape -->
+  <rect x="462" y="300" width="100" height="128" fill="#FFFDF7" opacity=".55"/>
+  <!-- label -->
+  <rect x="324" y="500" width="376" height="210" rx="18" fill="#FFFDF7" stroke="#1E2B2A" stroke-width="20"/>
+  <rect x="354" y="530" width="26" height="150" rx="9" fill="#D64933"/>
+  <rect x="410" y="548" width="132" height="44" rx="12" fill="#1E2B2A"/>
+  <rect x="410" y="616" width="190" height="34" rx="11" fill="#1E2B2A" opacity=".35"/>
+  <g fill="#1E2B2A">
+    <rect x="602" y="540" width="40" height="40" rx="7"/>
+    <rect x="652" y="540" width="20" height="20" rx="4"/>
+    <rect x="602" y="590" width="20" height="20" rx="4"/>
+    <rect x="636" y="574" width="26" height="26" rx="5"/>
   </g>
 </svg>

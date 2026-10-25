@@ -1,7 +1,7 @@
 // Detail page of a numbered entry – a box or a large loose item – plus the
 // sheets that create, edit and move entries.
 
-import { html, icon, openSheet, confirmDialog, alertDialog, toast } from '../ui.js';
+import { html, raw, icon, openSheet, confirmDialog, alertDialog, toast } from '../ui.js';
 import { navBar, badge, photoImg, hydratePhotos, locationGrid, emptyState, shelfDiagram, catAttrs, placeCode } from '../components.js';
 import {
   state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
@@ -12,11 +12,24 @@ import {
   unitsLabel,
 } from '../format.js';
 import { processImage } from '../photos.js';
+import { qrSVG, boxCode } from '../qr.js';
 import { navigate, back, currentPath, refresh } from '../router.js';
 import { presetLabels } from './labels.js';
 
 let deletedNumber = null;
 let editing = false; // contents being edited on the page: hold re-renders meanwhile
+
+// The page opens with the label as it is printed: stripe, number, QR code.
+function labelHero(box) {
+  const cat = categoryById(box.category);
+  return html`
+    <div class="label-hero ${box.kind === 'item' ? 'item' : ''}" ${catAttrs(cat?.color ?? 'gray')}>
+      <span class="lh-stripe"></span>
+      <span class="lh-kicker">${cat?.name ?? kindOf(box).name}</span>
+      <span class="lh-num">${pad(box.number)}</span>
+      <span class="lh-qr">${raw(qrSVG(boxCode(box.number)))}</span>
+    </div>`;
+}
 
 function locationCard(box) {
   const loc = box.location;
@@ -65,7 +78,7 @@ export const boxView = {
       })}
       <main class="page">
         <section class="hero">
-          ${badge(box, 'xl')}
+          ${labelHero(box)}
           <h1 data-title-anchor>${boxHeading(box)}</h1>
           <p class="hero-sub">
             ${isItem ? `${kindOf(box).name} · ` : ''}

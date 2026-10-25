@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
 
-const VERSION = 'fundort-v13';
+const VERSION = 'fundort-v14';
 const ASSETS = [
   './',
   'index.html',
@@ -35,6 +35,9 @@ const ASSETS = [
   'vendor/qrcode.mjs',
   'vendor/jsQR.js',
   'vendor/firebase.mjs',
+  'fonts/bricolage-grotesque.woff2',
+  'fonts/figtree.woff2',
+  'fonts/jetbrains-mono.woff2',
   'icons/icon.svg',
   'icons/icon-180.png',
   'icons/icon-192.png',

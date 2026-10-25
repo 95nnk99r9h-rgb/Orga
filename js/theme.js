@@ -2,7 +2,7 @@
 // is a per-device preference; index.html applies it before the first paint.
 
 const KEY = 'fundort.theme';
-const BAR = { light: '#f2f2f7', dark: '#000000' };
+const BAR = { light: '#f3ece0', dark: '#0f1918' };
 
 export const THEMES = [
   ['auto', 'Automatisch'],

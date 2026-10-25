@@ -11,9 +11,9 @@ export const COLORS = ['red', 'orange', 'yellow', 'green', 'mint', 'teal', 'cyan
 
 // Light-mode values, used where CSS variables are not available (print, canvas).
 export const COLOR_HEX = {
-  red: '#ff3b30', orange: '#ff9500', yellow: '#ffcc00', green: '#34c759', mint: '#00c7be',
-  teal: '#30b0c7', cyan: '#32ade6', blue: '#007aff', indigo: '#5856d6', purple: '#af52de',
-  pink: '#ff2d55', brown: '#a2845e', gray: '#8e8e93',
+  red: '#d64933', orange: '#e8833a', yellow: '#e3b23c', green: '#5b9a5b', mint: '#38b59a',
+  teal: '#1c9c98', cyan: '#3b98c2', blue: '#3a6fd0', indigo: '#5a55c4', purple: '#9a55b5',
+  pink: '#d9547e', brown: '#9c7651', gray: '#858c8a',
 };
 
 export const DEFAULT_CATEGORIES = [
