@@ -74,6 +74,17 @@ Die Anleitung findest du auch jederzeit unter *Mehr → Als App installieren*. A
 
 **3. Loslegen:** Fundort vom Home-Bildschirm starten (nicht aus Safari – siehe „Gut zu wissen“). Beim ersten Start legst du fest, wie viele Regale es gibt, wie viele Böden jedes einzelne hat und welche Stellplätze es außerhalb der Regale gibt. Mit „Erst mit Beispieldaten ausprobieren“ kannst du alles gefahrlos testen und danach unter *Mehr → Alle Daten löschen* neu beginnen.
 
+## Am Computer (Windows, Mac) und auf dem iPad quer
+
+Dieselbe Adresse funktioniert in Edge, Chrome, Firefox und Safari. Ab etwa 1024 Pixel Breite – also am Computer oder auf dem iPad im Querformat – wird aus der Tab-Leiste eine **Seitenleiste** mit „Neu erfassen“; die Regale stehen nebeneinander, Bearbeiten öffnet sich als Fenster in der Mitte, und unter *Etiketten* steht die Druckvorschau neben den Einstellungen.
+
+![Fundort im Browser am Computer](docs/desktop.png)
+
+- **Als App installieren:** In Edge oder Chrome auf das Installations-Symbol rechts in der Adressleiste klicken (oder *Mehr → Als App installieren*). Fundort läuft dann in einem eigenen Fenster und erscheint im Startmenü.
+- **Tastenkürzel:** `Strg`+`K` (Mac: `⌘`+`K`) oder `/` springt in die Suche, `N` erfasst etwas Neues, `Esc` schließt Fenster.
+- **Gemeinsam nutzen:** Der Computer tritt wie ein Handy mit dem Haushalts-Code bei (*Mehr → Gemeinsam nutzen*).
+- **Drucken** geht am Computer am bequemsten – Etiketten und Inhaltslisten in Originalgröße (100 %).
+
 ## Gut zu wissen
 
 - **Erst installieren, dann erfassen.** Safari und die installierte App speichern ihre Daten auf dem iPhone getrennt. Wer schon in Safari erfasst hat, nimmt die Daten per Backup mit (*Mehr → Backup erstellen*, in der App *Backup wiederherstellen*).

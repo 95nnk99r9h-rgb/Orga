@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache, refresh the cache in the
 // background (stale-while-revalidate). Bump VERSION to force a clean update.
 
-const VERSION = 'fundort-v12';
+const VERSION = 'fundort-v13';
 const ASSETS = [
   './',
   'index.html',

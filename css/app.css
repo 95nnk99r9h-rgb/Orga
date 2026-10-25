@@ -46,8 +46,8 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --nav-h: 54px;
   --tab-space: calc(96px + var(--safe-b));
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
-  --font-round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Helvetica Neue", "Segoe UI Variable Text", "Segoe UI", Roboto, Arial, sans-serif;
+  --font-round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -3534,4 +3534,266 @@ button,
 
 .welcome-actions .btn.secondary {
   margin-top: 10px;
+}
+
+/* ------------------------------------------------------------ Wide screens */
+/* A computer or a tablet in landscape: the tab bar becomes a sidebar, the
+   start page and the labels use the width, sheets open in the middle. */
+
+.side-brand,
+.side-new,
+.search-kbd {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --side-w: 248px;
+    --gutter: 24px;
+    --tab-space: 56px;
+  }
+
+  html {
+    scrollbar-width: thin;
+  }
+
+  body:has(#tabbar:not([hidden])) {
+    padding-left: var(--side-w);
+  }
+
+  body:has(#tabbar:not([hidden])) .nav,
+  body:has(#tabbar:not([hidden])) .scan {
+    left: var(--side-w);
+  }
+
+  body:has(#tabbar:not([hidden])) .toast {
+    left: calc(50% + var(--side-w) / 2);
+  }
+
+  /* Sidebar */
+  .tabbar {
+    inset: 0 auto 0 0;
+    width: var(--side-w);
+    display: block;
+    padding: 0;
+  }
+
+  .tabbar-inner,
+  .dark-view .tabbar-inner {
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    gap: 2px;
+    padding: calc(var(--safe-t) + 20px) 14px 20px;
+    border-radius: 0;
+    background: var(--bg-elev);
+    border-right: 0.5px solid var(--sep);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .side-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 20px;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .side-brand img {
+    border-radius: 8px;
+  }
+
+  .side-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    background: var(--tint);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .side-new .i {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.4;
+  }
+
+  .tab,
+  .dark-view .tab {
+    flex: none;
+    flex-direction: row;
+    gap: 12px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    color: var(--label);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .tab .i {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tab.active,
+  .dark-view .tab.active {
+    color: var(--tint);
+    background: color-mix(in srgb, var(--tint) 12%, transparent);
+  }
+
+  /* Pages: detail pages stay readable, overviews use the width. */
+  .view-inner,
+  .nav-inner {
+    max-width: 780px;
+  }
+
+  .view-inner:has(.page.wide),
+  .view-inner:has(.page.wide) .nav-inner {
+    max-width: 1320px;
+  }
+
+  .page {
+    padding-top: calc(var(--nav-h) + var(--safe-t) + 8px);
+  }
+
+  .shelf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 16px;
+  }
+
+  .shelf-grid > .card {
+    margin: 0;
+  }
+
+  .filter-chips {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin: 0 0 16px;
+    padding: 0;
+  }
+
+  .search-row,
+  .page.wide > .card.notice,
+  .page.wide > .install-card {
+    max-width: 640px;
+  }
+
+  .search-kbd {
+    display: block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 0.5px solid var(--sep);
+    color: var(--label-3);
+    font: 600 12px/1.4 var(--font);
+  }
+
+  .search-row.active .search-kbd,
+  .search input:not(:placeholder-shown) ~ .search-kbd {
+    display: none;
+  }
+
+  /* Labels: options on the left, the preview next to them. */
+  .labels-layout {
+    display: grid;
+    grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+    gap: 36px;
+    align-items: start;
+  }
+
+  .labels-preview {
+    position: sticky;
+    top: calc(var(--nav-h) + var(--safe-t) + 8px);
+    max-height: calc(100dvh - var(--nav-h) - var(--safe-t) - 24px);
+    overflow-y: auto;
+    padding: 0 4px 16px;
+  }
+
+  .labels-preview .section-head:first-child {
+    margin-top: 0;
+  }
+
+  /* A whole A4 page fits into the window. */
+  .labels-preview .preview-page {
+    width: min(100%, (100dvh - var(--nav-h) - 170px) / 1.414);
+    margin: 0 auto;
+  }
+
+  /* The sidebar has its own "new" button. */
+  body:has(#tabbar:not([hidden])) .nav [data-action="new-box"] {
+    display: none;
+  }
+
+  /* Sheets as dialogs in the middle of the window */
+  .sheet,
+  .sheet-layer.open .sheet {
+    top: 50%;
+    bottom: auto;
+    max-width: 640px;
+    max-height: calc(100dvh - 64px);
+    border-radius: 24px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  }
+
+  .sheet {
+    opacity: 0;
+    transform: translateY(calc(-50% + 24px)) scale(0.98);
+    transition: transform 0.3s var(--ease), opacity 0.2s;
+  }
+
+  .sheet-layer.open .sheet {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+
+  .sheet-grabber {
+    display: none;
+  }
+
+  .sheet-head {
+    padding-top: 14px;
+  }
+
+  .sheet-body {
+    padding-bottom: 24px;
+  }
+}
+
+/* Pointer devices: a light highlight under the mouse. */
+@media (hover: hover) and (pointer: fine) {
+  a.cell:hover,
+  button.cell:not(:disabled):hover,
+  .level-row:hover,
+  .shelf-head:hover {
+    background: color-mix(in srgb, var(--label) 4%, transparent);
+  }
+
+  .tab:not(.active):hover {
+    background: color-mix(in srgb, var(--label) 7%, transparent);
+  }
+
+  /* Chips keep their own colour; a thin overlay darkens them a little. */
+  .fchip:hover,
+  .chip:hover {
+    box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--label) 6%, transparent);
+  }
+
+  .box-chip:hover {
+    filter: brightness(0.95);
+  }
+
+  .side-new:hover {
+    filter: brightness(1.08);
+  }
 }

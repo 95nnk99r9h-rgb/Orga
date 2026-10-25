@@ -60,10 +60,14 @@ function match(path) {
   return null;
 }
 
+// On phones a floating tab bar; in a wide window (see css "Wide screens")
+// the same element becomes a sidebar with the app name and a "new" button.
 function renderTabbar(hidden) {
   tabbarEl.hidden = !!hidden;
   tabbarEl.innerHTML = String(html`
     <div class="tabbar-inner glass">
+      <div class="side-brand"><img src="icons/icon.svg" alt="" width="32" height="32"><span>Fundort</span></div>
+      <button type="button" class="side-new" data-action="new-box">${icon('plus')} Neu erfassen</button>
       ${TABS.map(
         (t) => html`
           <a href="#${t.path}" data-tab class="tab ${t.id === activeTab ? 'active' : ''}" ${t.id === activeTab ? raw('aria-current="page"') : ''}>
@@ -147,6 +151,24 @@ document.addEventListener('click', (e) => {
     if (path === currentPath()) window.scrollTo({ top: 0, behavior: 'smooth' });
     else switchTab(path);
   } else if (path !== currentPath()) navigate(path);
+});
+
+// Keyboard (computer or iPad with keyboard): Ctrl/⌘+K or "/" jumps to the
+// search on the start page, "N" starts a new entry.
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || !state.meta.setupDone || document.querySelector('.sheet-layer, .alert-layer')) return;
+  const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
+  const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+  if ((e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey)) || (e.key === '/' && plain && !typing)) {
+    e.preventDefault();
+    if (currentPath() !== '/') switchTab('/');
+    const search = viewEl.querySelector('input[name="q"]');
+    search?.focus();
+    search?.select();
+  } else if (e.key.toLowerCase() === 'n' && plain && !typing && current?.view.className !== 'view-scan') {
+    e.preventDefault();
+    newBox();
+  }
 });
 
 window.addEventListener('popstate', () => render());

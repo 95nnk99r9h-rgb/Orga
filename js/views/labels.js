@@ -382,8 +382,10 @@ export default {
         title: 'Etiketten',
         right: html`<button class="circle-btn glass" data-action="print" aria-label="Drucken">${icon('printer')}</button>`,
       })}
-      <main class="page">
+      <main class="page wide">
         ${largeTitle('Etiketten', 'Drucken, ausschneiden, aufkleben.')}
+        <div class="labels-layout">
+        <div class="labels-options">
         <div class="seg" role="group" aria-label="Etikettenart">
           <button type="button" data-mode="boxes" aria-pressed="${String(opts.mode === 'boxes')}">Nummern</button>
           <button type="button" data-mode="places" aria-pressed="${String(opts.mode === 'places')}">Regale &amp; Plätze</button>
@@ -409,6 +411,9 @@ export default {
           </div>
         </div>`}
 
+        </div>
+
+        <div class="labels-preview">
         <h3 class="section-head">Vorschau · ${lists ? '' : `${plural(labels.length, 'Etikett', 'Etiketten')} auf `}${plural(sheets.length, 'Seite', 'Seiten')}</h3>
         <div class="preview" data-preview>
           ${sheets.length ? sheets.map((s) => html`<div class="preview-page">${s}</div>`) : html`<div class="card muted-cell">Nichts ausgewählt</div>`}
@@ -416,6 +421,8 @@ export default {
 
         <button type="button" class="btn" data-action="print" ${sheets.length ? '' : raw('disabled')}>${icon('printer')} Drucken</button>
         <p class="section-foot center">Im Druckdialog „Tatsächliche Größe“ bzw. 100 % wählen.</p>
+        </div>
+        </div>
       </main>`;
   },
 

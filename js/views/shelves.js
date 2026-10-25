@@ -84,15 +84,17 @@ export function roomBlock(room) {
   const zones = zonesIn(room.id);
   return html`
     <h2 class="room-title">${room.name}<small>${plural(shelves.length, 'Regal', 'Regale')} · ${plural(zones.length, 'Stellplatz', 'Stellplätze')}</small></h2>
-    ${shelves.map(shelfCard)}
-    ${zoneCard(zones, { notice: false })}
-    ${shelves.length || zones.length
-      ? ''
-      : html`<a class="card notice spaced-bottom" href="#/mehr/regale">
-          <span class="icon-tile" ${catAttrs('blue')}>${icon('shelves')}</span>
-          <span class="cell-text"><span class="cell-title">Noch leer</span><span class="cell-sub wrap">Regale und Stellplätze für diesen Raum unter „Lagerorte“ anlegen.</span></span>
-          ${icon('chevron', 'chev')}
-        </a>`}`;
+    <div class="shelf-grid">
+      ${shelves.map(shelfCard)}
+      ${zoneCard(zones, { notice: false })}
+      ${shelves.length || zones.length
+        ? ''
+        : html`<a class="card notice spaced-bottom" href="#/mehr/regale">
+            <span class="icon-tile" ${catAttrs('blue')}>${icon('shelves')}</span>
+            <span class="cell-text"><span class="cell-title">Noch leer</span><span class="cell-sub wrap">Regale und Stellplätze für diesen Raum unter „Lagerorte“ anlegen.</span></span>
+            ${icon('chevron', 'chev')}
+          </a>`}
+    </div>`;
 }
 
 const roomPrefix = (place) => (multiRoom() ? `${roomById(place.room)?.name} · ` : '');

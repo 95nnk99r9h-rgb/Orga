@@ -103,13 +103,14 @@ export function browseView({ tab, title, subtitle, overview, bind = null }) {
     render() {
       return html`
         ${navBar({ title, right: newBoxButton() })}
-        <main class="page">
+        <main class="page wide">
           ${largeTitle(title, subtitle())}
           <div class="search-row ${searching ? 'active' : ''}">
             <form class="search" role="search" data-form="search">
               ${icon('search')}
               <input type="search" name="q" value="${query}" placeholder="Suchen" aria-label="Suchen"
                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+              <kbd class="search-kbd" aria-hidden="true">${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Strg K'}</kbd>
               <button type="button" class="search-clear" data-action="clear-search" aria-label="Suche löschen" ${query ? '' : 'hidden'}>${icon('xmark')}</button>
             </form>
             <button type="button" class="search-cancel" data-action="cancel-search">Abbrechen</button>
