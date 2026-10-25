@@ -7,7 +7,7 @@ import {
   state, boxByNumber, boxById, categoryById, shelfById, zoneById, createBox, updateBox, moveBox, deleteBox,
   nextNumber, savePhotos, deletePhotos, isValidLocation, search, sortedBoxes, locLong,
 } from '../store.js';
-import { pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitItems, dateLabel, relTime } from '../format.js';
+import { pad, boxTitle, boxHeading, unitName, kindOf, locShort, parseLocKey, sameLoc, splitLines, dateLabel, relTime } from '../format.js';
 import { processImage } from '../photos.js';
 import { navigate, back, currentPath } from '../router.js';
 import { presetLabels } from './labels.js';
@@ -81,17 +81,18 @@ export const boxView = {
           ? ''
           : html`
             <h3 class="section-head">Inhalt${box.items.length ? ` · ${box.items.length}` : ''}</h3>
-            <div class="list">
+            <div class="list item-list">
               ${box.items.map(
                 (item, i) => html`
                   <div class="cell item-row">
+                    <span class="item-dot" aria-hidden="true"></span>
                     <span class="cell-title">${item}</span>
                     <button class="icon-btn" data-action="remove-item" data-i="${i}" aria-label="${item} entfernen">${icon('xmark')}</button>
                   </div>`,
               )}
-              <form class="cell add-row" data-form="add-item">
-                ${icon('plus', 'add-icon')}
-                <input name="item" placeholder="Gegenstand hinzufügen" autocomplete="off" enterkeyhint="done" aria-label="Gegenstand hinzufügen">
+              <form class="cell item-field blank" data-form="add-item">
+                <span class="item-dot" aria-hidden="true"></span>
+                <input name="item" placeholder="Neuer Gegenstand" autocomplete="off" enterkeyhint="done" aria-label="Neuer Gegenstand">
               </form>
             </div>`}
 
@@ -152,13 +153,23 @@ export const boxView = {
       }
     });
 
+    // The empty row at the end of the contents adds an entry on Enter; pasted
+    // lines become one entry each.
     const form = root.querySelector('[data-form="add-item"]');
-    form?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const items = splitItems(form.item.value);
+    const add = (items) => {
       if (!items.length) return;
       refocusQuickAdd = true;
       updateBox(box.id, { items: [...box.items, ...items] });
+    };
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      add(splitLines(form.item.value));
+    });
+    form?.item.addEventListener('paste', (e) => {
+      const lines = splitLines(e.clipboardData?.getData('text'));
+      if (lines.length < 2) return;
+      e.preventDefault();
+      add([...splitLines(form.item.value), ...lines]);
     });
     if (refocusQuickAdd) {
       refocusQuickAdd = false;
@@ -212,6 +223,84 @@ const photoStrip = (draft) => html`
   )}
   <label class="photo-add">${icon('camera')}<span>Foto</span><input type="file" accept="image/*" multiple hidden></label>`;
 
+// Contents in the editor: one field per entry and always an empty, highlighted
+// row at the end. Typing there makes it an entry and adds the next empty row.
+const itemField = (value = '') => html`
+  <div class="cell item-field ${value ? '' : 'blank'}">
+    <span class="item-dot" aria-hidden="true"></span>
+    <input name="item" value="${value}" placeholder="Neuer Gegenstand" autocomplete="off" enterkeyhint="next" aria-label="Gegenstand">
+    <button type="button" class="icon-btn" data-remove-item tabindex="-1" aria-label="Gegenstand entfernen">${icon('xmark')}</button>
+  </div>`;
+
+function bindItemFields(list) {
+  const fields = () => [...list.querySelectorAll('.item-field')];
+  const inputOf = (row) => row.querySelector('input');
+  const blankRow = () => fields().at(-1);
+  const appendBlank = () => {
+    list.insertAdjacentHTML('beforeend', String(itemField()));
+    return blankRow();
+  };
+  const focusEnd = (row) => {
+    const input = inputOf(row);
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  };
+
+  list.addEventListener('input', (e) => {
+    const row = e.target.closest('.item-field');
+    const filled = !!e.target.value.trim();
+    if (row === blankRow() && filled) {
+      row.classList.remove('blank');
+      appendBlank();
+    }
+  });
+
+  // An entry that was emptied disappears once you leave it.
+  list.addEventListener('focusout', (e) => {
+    const row = e.target.closest('.item-field');
+    if (row && row !== blankRow() && !e.target.value.trim()) row.remove();
+  });
+
+  list.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.item-field');
+    if (!row) return;
+    const rows = fields();
+    const i = rows.indexOf(row);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (row === blankRow()) e.target.blur();
+      else focusEnd(rows[i + 1]);
+    }
+    if (e.key === 'Backspace' && !e.target.value && i > 0) {
+      e.preventDefault();
+      focusEnd(rows[i - 1]); // the emptied row goes on focusout
+    }
+  });
+
+  list.addEventListener('paste', (e) => {
+    const lines = splitLines(e.clipboardData?.getData('text'));
+    if (lines.length < 2) return;
+    e.preventDefault();
+    let row = e.target.closest('.item-field');
+    const [first, ...rest] = lines;
+    inputOf(row).value = `${inputOf(row).value}${first}`;
+    row.classList.remove('blank');
+    for (const line of rest) {
+      row.insertAdjacentHTML('afterend', String(itemField(line)));
+      row = row.nextElementSibling;
+    }
+    if (row === blankRow()) appendBlank();
+    focusEnd(blankRow());
+  });
+
+  list.addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-remove-item]');
+    if (remove) remove.closest('.item-field').remove();
+  });
+}
+
+const itemValues = (list) => [...list.querySelectorAll('.item-field input')].map((input) => input.value.trim()).filter(Boolean);
+
 export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) {
   const isNew = !box;
   const oldNumber = box?.number;
@@ -260,10 +349,8 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
 
       <div data-only="box" ${draft.kind === 'box' ? '' : 'hidden'}>
         <h3 class="section-head">Inhalt</h3>
-        <div class="list">
-          <textarea name="items" rows="4" placeholder="${'Ein Gegenstand pro Zeile, z. B.\nLichterkette\nChristbaumkugeln'}">${(box?.items ?? []).join('\n')}</textarea>
-        </div>
-        <p class="section-foot">Lieber fünf gute Stichworte als eine perfekte Liste – die Suche findet auch Wortteile.</p>
+        <div class="list item-list" data-items>${(box?.items ?? []).map(itemField)}${itemField()}</div>
+        <p class="section-foot">Ein Gegenstand pro Zeile – Enter springt in die nächste. Lieber fünf gute Stichworte als eine perfekte Liste: Die Suche findet auch Wortteile.</p>
       </div>
 
       <h3 class="section-head">Notizen</h3>
@@ -284,6 +371,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         hydratePhotos(strip);
       };
       hydratePhotos(strip);
+      bindItemFields(el.querySelector('[data-items]'));
 
       // Boxes get contents, loose items a title. Switching only hides the
       // other field, so nothing typed is lost until saving.
@@ -346,7 +434,7 @@ export function openBoxEditor({ box = null, preset = {}, onSaved = null } = {}) 
         title: isItem ? form.title.value : '',
         category: draft.category,
         location: isValidLocation(draft.location) ? draft.location : null,
-        items: isItem ? [] : splitItems(form.items.value),
+        items: isItem ? [] : itemValues(el.querySelector('[data-items]')),
         notes: form.notes.value.trim(),
       };
       const saved = isNew ? createBox(data) : updateBox(box.id, data);

@@ -65,9 +65,10 @@ export function normalize(s) {
     .replace(/ß/g, 'ss');
 }
 
-export function splitItems(text) {
+// Pasted text: one entry per line.
+export function splitLines(text) {
   return String(text ?? '')
-    .split(/[\n,;]+/)
+    .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
 }

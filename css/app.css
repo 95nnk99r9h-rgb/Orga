@@ -1271,7 +1271,19 @@ button.cell:active {
   stroke-width: 3;
 }
 
-.item-row {
+.add-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+/* Contents: one row per entry, the empty row at the end stands out. */
+.item-list {
+  --sep-inset: 40px;
+}
+
+.item-row,
+.item-field {
   min-height: 46px;
 }
 
@@ -1280,17 +1292,15 @@ button.cell:active {
   white-space: normal;
 }
 
-.add-row {
-  color: var(--tint);
+.item-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--label-3) 0 3px, transparent 3.5px);
 }
 
-.add-icon {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2.2;
-}
-
-.add-row input {
+.item-field input {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -1300,9 +1310,25 @@ button.cell:active {
   color: var(--label);
 }
 
-.add-row input::placeholder {
+.item-field input::placeholder {
+  color: var(--label-3);
+}
+
+.item-field.blank {
+  background: color-mix(in srgb, var(--tint) 8%, var(--bg-elev));
+}
+
+.item-field.blank .item-dot {
+  background: none;
+  border: 1.5px dashed var(--tint);
+}
+
+.item-field.blank input::placeholder {
   color: var(--tint);
-  opacity: 0.85;
+}
+
+.item-field.blank .icon-btn {
+  visibility: hidden;
 }
 
 .note-card {
