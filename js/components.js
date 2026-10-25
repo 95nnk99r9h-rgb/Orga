@@ -30,8 +30,16 @@ export const catAttrs = (color) => raw(`style="--cat: var(--c-${esc(color ?? 'gr
 export const badge = (box, cls = '') =>
   html`<span class="badge ${box.kind === 'item' ? 'item' : ''} ${cls}" ${catAttrs(colorOf(box))}>${pad(box.number)}</span>`;
 
-export const boxChip = (box) =>
-  html`<a class="box-chip ${box.kind === 'item' ? 'item' : ''}" href="#/kiste/${box.number}" data-id="${box.id}" draggable="false" ${catAttrs(colorOf(box))} title="${boxTitle(box)}">${pad(box.number)}</a>`;
+// A box drawn as a cardboard crate with its label; loose items hang as round
+// tags. Sizes vary a little by number, so a level looks like a real shelf.
+export function crate(box) {
+  const item = box.kind === 'item';
+  const w = [66, 74, 82, 70][box.number % 4];
+  const h = [42, 48, 44][box.number % 3];
+  const color = esc(colorOf(box));
+  const style = item ? `--cat: var(--c-${color})` : `--cat: var(--c-${color}); --w: ${w}px; --h: ${h}px`;
+  return html`<a class="crate ${item ? 'item' : box.number % 3 === 1 ? 'taped' : ''}" href="#/kiste/${box.number}" data-id="${box.id}" draggable="false" ${raw(`style="${style}" data-c="${color}"`)} title="${boxTitle(box)}"><span class="crate-label">${pad(box.number)}</span></a>`;
+}
 
 // Square showing where something is: "B3" for a shelf level, "S1" for a zone.
 export function placeCode(loc, cls = '') {

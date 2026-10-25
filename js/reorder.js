@@ -1,4 +1,4 @@
-// Hold-and-drag reordering of the number chips within one row ([data-reorder]).
+// Hold-and-drag reordering of the drawn crates within one row ([data-reorder]).
 // Touch: hold a chip briefly to pick it up – moving earlier means scrolling.
 // Mouse: press and move. A short tap still follows the link.
 
@@ -8,7 +8,8 @@ const HOLD_MS = 350;
 const TOUCH_SLOP = 8;
 const MOUSE_SLOP = 4;
 
-const chipsOf = (row) => [...row.querySelectorAll('.box-chip')];
+const ITEM = '.crate';
+const chipsOf = (row) => [...row.querySelectorAll(ITEM)];
 
 export function enableReorder(root, onReorder) {
   let pending = null; // { chip, row, x, y, timer } – pressed, not yet lifted
@@ -17,7 +18,7 @@ export function enableReorder(root, onReorder) {
   let lastTouch = 0;
 
   const rowFor = (target) => {
-    const chip = target.closest?.('.box-chip');
+    const chip = target.closest?.(ITEM);
     const row = chip?.closest('[data-reorder]');
     return row && root.contains(row) && chipsOf(row).length > 1 ? { chip, row } : null;
   };
@@ -37,7 +38,7 @@ export function enableReorder(root, onReorder) {
   function move(x, y) {
     const { chip, row } = drag;
     const chips = chipsOf(row);
-    const target = document.elementFromPoint(x, y)?.closest('.box-chip');
+    const target = document.elementFromPoint(x, y)?.closest(ITEM);
     let ref;
     if (target && target !== chip && target.parentElement === row) {
       const r = target.getBoundingClientRect();

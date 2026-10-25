@@ -50,7 +50,7 @@ function overview() {
               action: html`<a class="btn" href="#/mehr/regale">Lagerorte einrichten</a>`,
             })}
         <div class="shelf-grid">${state.shelves.map(shelfCard)}${zoneCard()}</div>`}
-    ${crowded ? html`<p class="section-foot center">Tipp: Nummer gedrückt halten und ziehen, um die Reihenfolge auf einem Boden zu ändern.</p>` : ''}
+    ${crowded ? html`<p class="section-foot center">Tipp: Kiste gedrückt halten und ziehen, um die Reihenfolge auf einem Boden zu ändern.</p>` : ''}
     ${unplaced.length ? html`<h3 class="section-head">Ohne festen Platz</h3><div class="list">${unplaced.map((b) => boxRow(b))}</div>` : ''}
     ${away.length ? html`<h3 class="section-head">Entnommen</h3><div class="list">${away.map((b) => boxRow(b))}</div>` : ''}
     <a class="btn secondary spaced" href="#/mehr/regale">${icon('pencil')} Lagerorte bearbeiten</a>

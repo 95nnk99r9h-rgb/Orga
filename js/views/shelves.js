@@ -2,26 +2,28 @@
 // for the start page – and the detail pages for a shelf, a level and a zone.
 
 import { html, icon } from '../ui.js';
-import { navBar, largeTitle, boxRow, boxChip, emptyState, shelfDiagram, catAttrs } from '../components.js';
+import { navBar, largeTitle, boxRow, crate, emptyState, shelfDiagram, catAttrs } from '../components.js';
 import { state, shelfById, zoneById, roomById, boxesAt, boxesInZone, shelvesIn, zonesIn, multiRoom } from '../store.js';
 import { plural, unitsLabel } from '../format.js';
 import { navigate } from '../router.js';
 import { newBox, openPickBoxSheet } from './box.js';
 import { presetLabels } from './labels.js';
 
-const chips = (boxes) => (boxes.length ? boxes.map(boxChip) : html`<span class="level-empty">leer</span>`);
+// The start page draws each shelf: uprights, a board per level with a small
+// level label on its front edge, and the crates standing on it.
+const free = () => html`<span class="rack-free" aria-hidden="true">${icon('plus')}</span>`;
+const crates = (boxes) => (boxes.length ? boxes.map(crate) : free());
 
-function levelRow(shelf, level) {
+function rackLevel(shelf, level) {
   return html`
-    <div class="level-row" data-href="/regal/${shelf.id}/${level}">
-      <a class="level-num" href="#/regal/${shelf.id}/${level}" aria-label="Boden ${level}">${level}</a>
-      <span class="level-chips" data-reorder>${chips(boxesAt(shelf.id, level))}</span>
-      ${icon('chevron', 'chev')}
+    <div class="rack-level" data-href="/regal/${shelf.id}/${level}">
+      <div class="rack-slots" data-reorder>${crates(boxesAt(shelf.id, level))}</div>
+      <a class="rack-tag" href="#/regal/${shelf.id}/${level}" aria-label="Regal ${shelf.id}, Boden ${level}">${shelf.id}${level}</a>
     </div>`;
 }
 
 const shelfHead = (shelf) => html`
-  <a class="shelf-head" href="#/regal/${shelf.id}">
+  <a class="rack-head" href="#/regal/${shelf.id}">
     <span class="shelf-letter">${shelf.id}</span>
     <span class="cell-text">
       <span class="cell-title">Regal ${shelf.id}</span>
@@ -30,23 +32,15 @@ const shelfHead = (shelf) => html`
     ${icon('chevron', 'chev')}
   </a>`;
 
-const zonesHead = () => html`
-  <div class="shelf-head static">
-    <span class="zone-code">${icon('zone')}</span>
-    <span class="cell-text">
-      <span class="cell-title">Stellplätze</span>
-      <span class="cell-sub">Außerhalb der Regale</span>
-    </span>
-  </div>`;
-
 export function shelfCard(shelf) {
   return html`
-    <section class="card shelf-card">
+    <section class="rack">
       ${shelfHead(shelf)}
-      ${Array.from({ length: shelf.levels }, (_, i) => levelRow(shelf, i + 1))}
+      <div class="rack-frame">${Array.from({ length: shelf.levels }, (_, i) => rackLevel(shelf, i + 1))}</div>
     </section>`;
 }
 
+// Zones are spots on the floor, each marked with a kraft plate.
 // zones: the zones to show (one room's); notice: invite to create some if none.
 export function zoneCard(zones = state.zones, { notice = true } = {}) {
   if (!zones.length) {
@@ -62,17 +56,19 @@ export function zoneCard(zones = state.zones, { notice = true } = {}) {
       </a>`;
   }
   return html`
-    <section class="card shelf-card">
-      ${zonesHead()}
+    <section class="rack floor">
+      <div class="rack-head static">
+        <span class="zone-code">${icon('zone')}</span>
+        <span class="cell-text">
+          <span class="cell-title">Stellplätze</span>
+          <span class="cell-sub">Außerhalb der Regale</span>
+        </span>
+      </div>
       ${zones.map(
         (z) => html`
-          <div class="level-row zone-row" data-href="/platz/${z.id}">
-            <a class="zone-code sm" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}">${z.id}</a>
-            <span class="zone-main">
-              <span class="zone-name">${z.name || `Stellplatz ${z.id}`}</span>
-              <span class="level-chips" data-reorder>${chips(boxesInZone(z.id))}</span>
-            </span>
-            ${icon('chevron', 'chev')}
+          <div class="rack-level floor-spot" data-href="/platz/${z.id}">
+            <a class="floor-plate" href="#/platz/${z.id}" aria-label="Stellplatz ${z.id}"><b>${z.id}</b><span>${z.name || `Stellplatz ${z.id}`}</span></a>
+            <div class="rack-slots" data-reorder>${crates(boxesInZone(z.id))}</div>
           </div>`,
       )}
     </section>`;

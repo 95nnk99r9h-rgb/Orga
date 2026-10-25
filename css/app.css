@@ -1041,22 +1041,231 @@ button.cell:active {
 
 /* ------------------------------------------------------------- Shelf views */
 
-.shelf-card {
-  overflow: hidden;
-  margin-bottom: 16px;
+/* ---------------------------------------------------------- Drawn shelves */
+/* The start page draws each shelf like the welcome illustration: dark
+   uprights, a wooden board per level with a small level label on its front
+   edge, and cardboard crates with their labels standing on it. */
+
+.rack {
+  margin-bottom: 26px;
 }
 
-.shelf-head {
+.rack-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px 12px;
+  padding: 0 4px 14px;
   color: var(--label);
 }
 
-.shelf-head .cell-title {
+.rack-head .cell-title {
   font: 750 18px/1.2 var(--font-display);
   letter-spacing: -0.015em;
+}
+
+.rack-frame {
+  position: relative;
+  padding: 6px 12px 0;
+  border-left: 9px solid var(--label);
+  border-right: 9px solid var(--label);
+  border-radius: 3px 3px 0 0;
+}
+
+/* Feet below the lowest board */
+.rack-frame::after {
+  content: "";
+  position: absolute;
+  left: -9px;
+  right: -9px;
+  bottom: -10px;
+  height: 10px;
+  background: linear-gradient(90deg, var(--label) 0 9px, transparent 9px calc(100% - 9px), var(--label) calc(100% - 9px));
+}
+
+.rack-level {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 64px;
+  padding: 9px 2px 13px;
+  cursor: pointer;
+}
+
+/* The board */
+.rack-level::after {
+  content: "";
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  bottom: 0;
+  height: 9px;
+  background: color-mix(in srgb, var(--kraft) 72%, var(--label));
+  box-shadow: 0 3px 0 rgba(15, 25, 24, 0.12);
+}
+
+.rack-slots {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 3px 8px;
+}
+
+/* The level label on the front edge of the board, like the printed ones. */
+.rack-tag {
+  position: absolute;
+  z-index: 1;
+  right: 6px;
+  bottom: -2px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: #fffdf7;
+  color: #1d1d1f;
+  box-shadow: 0 1px 0 rgba(15, 25, 24, 0.25);
+  font: 800 9.5px/1.1 var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.rack-free {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 32px;
+  border-radius: 5px;
+  border: 1.5px dashed color-mix(in srgb, var(--tint) 55%, transparent);
+  color: color-mix(in srgb, var(--tint) 75%, transparent);
+}
+
+.rack-free .i {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
+}
+
+/* A cardboard crate with lid line and its label */
+.crate {
+  --w: 72px;
+  --h: 44px;
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: var(--w);
+  height: var(--h);
+  padding-bottom: 6px;
+  border-radius: 4px;
+  background: var(--kraft);
+  border: 1.5px solid color-mix(in srgb, var(--kraft) 55%, var(--label));
+  transition: transform 0.15s;
+}
+
+.crate::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9px;
+  border-top: 1.5px solid color-mix(in srgb, var(--kraft) 55%, var(--label));
+}
+
+.crate.taped::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 22px;
+  height: 8px;
+  background: var(--tint-bright);
+  opacity: 0.9;
+  transform: translateX(-50%) rotate(4deg);
+}
+
+.crate-label {
+  padding: 4px 6px 4px 9px;
+  border-radius: 2px;
+  background: #fffdf7;
+  color: #1d1d1f;
+  box-shadow: inset 3px 0 0 var(--cat);
+  font: 800 11px/1 var(--font-mono);
+  letter-spacing: -0.04em;
+}
+
+/* A loose item: a round hang tag with an eyelet */
+.crate.item {
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  padding: 6px 0 0;
+  border-radius: 50%;
+  border: 3px solid var(--cat);
+  background: #fffdf7;
+}
+
+.crate.item::before {
+  left: 50%;
+  right: auto;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border: 1.5px solid var(--cat);
+  border-radius: 50%;
+  background: var(--bg);
+  transform: translateX(-50%);
+}
+
+.crate.item .crate-label {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 10px;
+}
+
+.crate:active {
+  transform: translateY(1px) scale(0.96);
+}
+
+/* Spots on the floor, each with a kraft plate */
+.floor-spot {
+  gap: 12px;
+  min-height: 66px;
+  padding: 8px 2px 12px;
+}
+
+.floor-spot::after {
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--kraft) 70%, var(--label)) 0 3px, transparent 3px 7px);
+  box-shadow: none;
+  border-top: 2px solid color-mix(in srgb, var(--kraft) 72%, var(--label));
+}
+
+.floor-plate {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+  width: 104px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: var(--kraft);
+  color: #1e2b2a;
+  box-shadow: 2px 2px 0 var(--hard);
+}
+
+.floor-plate b {
+  font: 800 14px/1 var(--font-mono);
+}
+
+.floor-plate span {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .shelf-letter {
@@ -1078,79 +1287,6 @@ button.cell:active {
   border-radius: 8px;
   font-size: 16px;
   box-shadow: 2px 2px 0 var(--tint-bright);
-}
-
-.level-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 9px 16px 14px;
-  cursor: pointer;
-}
-
-.level-row::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 4px;
-  height: 5px;
-  border-radius: 2px;
-  background: linear-gradient(var(--kraft), color-mix(in srgb, var(--kraft) 70%, var(--label)));
-  opacity: 0.55;
-}
-
-.level-row:active {
-  background: var(--fill-3);
-}
-
-.level-num {
-  width: 28px;
-  height: 22px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  flex: none;
-  background: var(--kraft-soft);
-  color: var(--label-2);
-  font: 750 12px/1 var(--font-mono);
-}
-
-.level-chips {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-width: 0;
-}
-
-.box-chip {
-  min-width: 54px;
-  height: 32px;
-  padding: 0 9px 0 13px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--cat) 13%, var(--bg-elev));
-  box-shadow: inset 4px 0 0 var(--cat), inset 0 0 0 1px color-mix(in srgb, var(--cat) 38%, transparent);
-  color: var(--label);
-  font: 750 13.5px/1 var(--font-mono);
-  letter-spacing: -0.02em;
-  transition: transform 0.15s;
-}
-
-.box-chip:active {
-  transform: translateY(1px) scale(0.96);
-}
-
-.level-empty {
-  color: var(--label-3);
-  font: 500 12px/1 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .shelf-diagram {
@@ -3328,22 +3464,7 @@ textarea {
   box-shadow: inset 0 0 0 3px var(--cat);
 }
 
-.box-chip.item {
-  border-radius: 999px;
-  padding-left: 9px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat) 38%, transparent);
-}
-
 /* Places outside the shelves: kraft-paper plates. */
-.box-chip.item::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-right: 6px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--cat);
-}
-
 .loc-code.zone,
 .zone-code {
   background: var(--kraft);
@@ -3380,29 +3501,8 @@ textarea {
   box-shadow: 3px 3px 0 var(--hard);
 }
 
-.shelf-head.static {
+.rack-head.static {
   cursor: default;
-}
-
-.zone-row {
-  align-items: center;
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-
-.zone-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.zone-name {
-  font: 650 16px/1.25 var(--font);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .level-code.zone {
@@ -3782,8 +3882,7 @@ button,
 .tab,
 .fchip,
 .chip,
-.box-chip,
-.level-num,
+.crate,
 .tabbar {
   -webkit-user-select: none;
   user-select: none;
@@ -3793,17 +3892,16 @@ button,
 
 /* ------------------------------------------------------------- Reordering */
 
-.level-chips.reordering .box-chip:not(.dragging) {
+.rack-slots.reordering .crate:not(.dragging) {
   opacity: 0.7;
 }
 
-.box-chip.dragging {
+.crate.dragging {
   position: relative;
   z-index: 2;
   opacity: 1;
-  transform: scale(1.15) rotate(-3deg);
-  background: color-mix(in srgb, var(--cat) 30%, var(--bg-elev));
-  box-shadow: inset 4px 0 0 var(--cat), 3px 3px 0 var(--hard);
+  transform: scale(1.12) rotate(-4deg);
+  box-shadow: 3px 3px 0 var(--hard);
 }
 
 .theme-seg {
@@ -4160,9 +4258,7 @@ button,
 /* Pointer devices: a light highlight under the mouse. */
 @media (hover: hover) and (pointer: fine) {
   a.cell:hover,
-  button.cell:not(:disabled):hover,
-  .level-row:hover,
-  .shelf-head:hover {
+  button.cell:not(:disabled):hover {
     background: color-mix(in srgb, var(--label) 4%, transparent);
   }
 
@@ -4176,8 +4272,12 @@ button,
     box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--label) 6%, transparent);
   }
 
-  .box-chip:hover {
-    filter: brightness(0.95);
+  .crate:not(.dragging):hover {
+    transform: translateY(-2px);
+  }
+
+  .rack-level:hover {
+    background: color-mix(in srgb, var(--tint-bright) 7%, transparent);
   }
 
   .side-new:hover {
