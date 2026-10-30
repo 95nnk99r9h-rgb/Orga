@@ -115,7 +115,7 @@ export default {
 
         <div class="welcome-actions">
           <button class="btn" data-action="setup">Keller einrichten</button>
-          ${syncConfigured() ? html`<button class="btn secondary" data-action="join">${icon('person')} Anmelden &amp; Haushalt beitreten</button>` : ''}
+          ${syncConfigured() ? html`<button class="btn secondary" data-action="join">${icon('people')} Einem Haushalt beitreten</button>` : ''}
           <button class="btn plain" data-action="demo">${icon('sparkles')} Erst mit Beispieldaten ausprobieren</button>
         </div>
       </main>`;
