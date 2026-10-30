@@ -126,7 +126,7 @@ Die Farbe wird als Streifen aufs Etikett gedruckt. Wer schwarz-weiß druckt, kle
 ## Material
 
 - Stapelbare Kisten mit Deckel, möglichst ein bis zwei Größen
-- Drucker und Papier – oder Universal-Etiketten **105 × 74 mm** (8 pro A4) bzw. **70 × 37 mm** (24 pro A4)
+- Drucker und Papier – oder Universal-Etiketten **105 × 57 mm** (10 pro A4, z. B. Avery Zweckform 3425), **105 × 74 mm** (8 pro A4) bzw. **70 × 37 mm** (24 pro A4)
 - Breites transparentes Klebeband oder Klebefolie, alternativ selbstklebende Etikettentaschen
 - Locher und Kabelbinder für Anhänger an Einzelstücken
 - Optional: farbige Klebepunkte (Ø 19 mm) für die Kategorien

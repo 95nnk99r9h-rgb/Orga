@@ -2682,6 +2682,14 @@ textarea {
     repeating-linear-gradient(0deg, transparent 0 4px, var(--label-3) 4px 5px);
 }
 
+.fmt-icon.fmt-medium {
+  background-image: linear-gradient(var(--label-3), var(--label-3)),
+    repeating-linear-gradient(180deg, transparent 0 6.4px, var(--label-3) 6.4px 7.4px);
+  background-size: 1px 100%, 100% 100%;
+  background-position: center, 0 0;
+  background-repeat: no-repeat;
+}
+
 .preview {
   display: grid;
   gap: 14px;
@@ -2725,6 +2733,14 @@ textarea {
 .a4.fmt-small {
   grid-template-columns: repeat(3, 70mm);
   grid-auto-rows: 37mm;
+}
+
+/* 2 × 5 labels, 6 mm margin at the top and bottom, none at the sides
+   (as Avery Zweckform 3425). */
+.a4.fmt-medium {
+  grid-template-columns: repeat(2, 105mm);
+  grid-auto-rows: 57mm;
+  padding: 6mm 0;
 }
 
 .a4.cut .lbl {
@@ -2861,6 +2877,51 @@ textarea {
   padding: 1.5mm;
   background: #fff;
   border-radius: 2mm;
+}
+
+/* Medium format: 105 × 57 mm – the large layout, a little flatter */
+
+.fmt-medium .lbl {
+  padding: 5mm 7mm 4.5mm 11mm;
+}
+
+.fmt-medium .lbl-stripe {
+  top: 5mm;
+  bottom: 4.5mm;
+}
+
+.fmt-medium .lbl-level,
+.fmt-medium .lbl-sign,
+.fmt-medium .lbl-zone {
+  padding-left: 7mm;
+}
+
+.fmt-medium .lbl-num,
+.fmt-medium .lbl-level .lbl-num {
+  font-size: 26mm;
+}
+
+.fmt-medium .lbl-box.n4 .lbl-num {
+  font-size: 21mm;
+}
+
+.fmt-medium .lbl-qr {
+  width: 28mm;
+  height: 28mm;
+}
+
+.fmt-medium .lbl-level .lbl-diagram {
+  top: 10.5mm;
+  gap: 0.4mm;
+}
+
+/* At most 11 mm high, so a shelf with many levels stays clear of the address. */
+.fmt-medium .lbl-level .lbl-diagram i {
+  height: min(1mm, (11mm - (var(--n) - 1) * 0.4mm) / var(--n));
+}
+
+.fmt-medium .lbl-sign .lbl-num {
+  font-size: 36mm;
 }
 
 /* Small format: 70 × 37 mm */

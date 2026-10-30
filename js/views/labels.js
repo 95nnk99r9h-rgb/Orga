@@ -13,6 +13,7 @@ import { qrSVG, boxCode, levelCode, shelfCode, zoneCode } from '../qr.js';
 import { refresh } from '../router.js';
 
 const FORMATS = {
+  medium: { label: 'Mittel', size: '105 × 57 mm', perPage: 10, hint: '10 pro A4-Bogen · z. B. Avery Zweckform 3425' },
   large: { label: 'Groß', size: '105 × 74 mm', perPage: 8, hint: '8 pro A4-Bogen · gut lesbar aus 3 m' },
   small: { label: 'Klein', size: '70 × 37 mm', perPage: 24, hint: '24 pro A4-Bogen · auch als Anhänger' },
 };
@@ -26,7 +27,7 @@ const opts = {
   shelves: null, // Set of shelf ids, null = all
   zones: null, // Set of zone ids, null = all
   signs: true,
-  format: 'large',
+  format: 'medium',
   titles: false,
   cutLines: true,
   skip: 0,
@@ -69,7 +70,7 @@ function levelLabel(shelf, level) {
       <span class="lbl-kicker">Regal ${shelf.id} · Boden ${level}</span>
       <span class="lbl-num">${shelf.id}${level}</span>
       <span class="lbl-title">${where}</span>
-      <span class="lbl-diagram">${Array.from({ length: n }, (_, i) => html`<i class="${i + 1 === level ? 'on' : ''}"></i>`)}</span>
+      <span class="lbl-diagram" style="--n:${n}">${Array.from({ length: n }, (_, i) => html`<i class="${i + 1 === level ? 'on' : ''}"></i>`)}</span>
       <span class="lbl-qr">${raw(qrSVG(levelCode(shelf.id, level)))}</span>
     </div>`;
 }

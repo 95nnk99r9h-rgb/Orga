@@ -45,7 +45,7 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 - **Etiketten** – druckfertige A4-Bögen mit QR-Codes:
   - Nummern-Etiketten vorab (passen für Kisten und Einzelstücke) oder für Erfasstes
   - Boden-Etiketten (A1, A2 …), große Regal-Schilder und Stellplatz-Etiketten (S1, S2 …)
-  - Formate **105 × 74 mm (8 pro Bogen)** und **70 × 37 mm (24 pro Bogen, auch als Anhänger)**, mit Schnittlinien für normales Papier; angebrochene Etikettenbögen lassen sich weiterverwenden
+  - Formate **105 × 57 mm (10 pro Bogen, z. B. Avery Zweckform 3425)**, **105 × 74 mm (8 pro Bogen)** und **70 × 37 mm (24 pro Bogen, auch als Anhänger)**, mit Schnittlinien für normales Papier; angebrochene Etikettenbögen lassen sich weiterverwenden
   - **Inhaltslisten** (*Etiketten → Listen* oder auf der Seite eines Regals): eine A4-Seite pro Regal mit allen Böden und Inhalten, dazu die Stellplätze – zum Aufhängen an der Tür
 - **Lagerorte** – Räume wie Keller, Dachboden und Garage anlegen, jeder mit eigenen Regalen und Stellplätzen; Regale hinzufügen und entfernen, Böden pro Regal einzeln einstellen, Regale und Stellplätze zwischen Räumen verschieben. Buchstaben und Nummern zählen über alle Räume weiter, damit jede Adresse eindeutig bleibt.
 - **Umlagern** – per Raster (Regal × Boden, kürzere Regale mit Lücken) plus Stellplätze, per Scan oder vom Platz aus („Hierher stellen“). Zusätzlich „Ohne festen Platz“ und „Entnommen“.
