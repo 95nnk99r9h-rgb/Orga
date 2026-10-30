@@ -4,6 +4,10 @@
 // on other devices. Firestore keeps writes made offline (also across app
 // restarts) and sends them once there is a connection again.
 //
+// Everyone signs in with e-mail and password; the household lists the
+// accounts that belong to it. Devices set up before accounts existed sign
+// in anonymously and keep working until they get an account.
+//
 //   households/{code}                { name, members: [uid], createdAt }
 //   households/{code}/meta/settings  { rooms, shelves, zones, categories, printedUpTo, modifiedAt }
 //   households/{code}/boxes/{id}     an entry as stored locally (photo ids only)
@@ -32,14 +36,16 @@ export function readCode(input) {
 const newCode = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(CODE_LENGTH)), (b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
 
-// off | connecting | synced | pending | offline | error
+// off | connecting | synced | pending | offline | signedOut | error
 let status = { state: 'off', message: '' };
 export const syncStatus = () => status;
+
+const notify = () => window.dispatchEvent(new CustomEvent('fundort:sync'));
 
 function setStatus(next, message = '') {
   if (status.state === next && status.message === message) return;
   status = { state: next, message };
-  window.dispatchEvent(new CustomEvent('fundort:sync'));
+  notify();
 }
 
 function report(err) {
@@ -47,10 +53,35 @@ function report(err) {
   setStatus('error', err.code === 'permission-denied' ? 'Kein Zugriff auf den Haushalt.' : err.message);
 }
 
+const OFFLINE = 'Keine Verbindung zum Server. Prüfe das Internet und versuche es erneut.';
+
 function withTimeout(promise) {
-  const message = 'Keine Verbindung zum Server. Prüfe das Internet und versuche es erneut.';
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(message)), TIMEOUT_MS))]);
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(OFFLINE)), TIMEOUT_MS))]);
 }
+
+const WRONG_LOGIN = 'E-Mail-Adresse oder Passwort stimmen nicht.';
+const TAKEN = 'Für diese E-Mail-Adresse gibt es schon ein Konto. Melde dich damit an.';
+const DISABLED = 'Die Anmeldung mit E-Mail und Passwort ist im Firebase-Projekt nicht eingeschaltet (docs/ONLINE.md, Schritt 2).';
+const AUTH_ERRORS = {
+  'auth/invalid-email': 'Diese E-Mail-Adresse ist ungültig.',
+  'auth/missing-email': 'Bitte gib deine E-Mail-Adresse ein.',
+  'auth/missing-password': 'Bitte gib dein Passwort ein.',
+  'auth/invalid-credential': WRONG_LOGIN,
+  'auth/invalid-login-credentials': WRONG_LOGIN,
+  'auth/wrong-password': WRONG_LOGIN,
+  'auth/user-not-found': WRONG_LOGIN,
+  'auth/email-already-in-use': TAKEN,
+  'auth/credential-already-in-use': TAKEN,
+  'auth/weak-password': 'Das Passwort ist zu kurz – es braucht mindestens 6 Zeichen.',
+  'auth/password-does-not-meet-requirements': 'Das Passwort erfüllt die Vorgaben des Firebase-Projekts nicht.',
+  'auth/user-disabled': 'Dieses Konto ist gesperrt.',
+  'auth/too-many-requests': 'Zu viele Versuche. Warte ein paar Minuten und versuche es dann erneut.',
+  'auth/network-request-failed': OFFLINE,
+  'auth/operation-not-allowed': DISABLED,
+  'auth/admin-restricted-operation': DISABLED,
+};
+
+const readable = (err) => (AUTH_ERRORS[err.code] ? Object.assign(new Error(AUTH_ERRORS[err.code]), { code: err.code }) : err);
 
 // ---------------------------------------------------------------------------
 // Firebase
@@ -58,7 +89,8 @@ function withTimeout(promise) {
 let fb = null; // the SDK module
 let auth = null;
 let db = null;
-let uid = null;
+let uid = null; // the signed-in account, null when signed out
+let authKnown = false; // false until the stored sign-in has been read
 let setup = null;
 
 async function connect() {
@@ -66,18 +98,31 @@ async function connect() {
     fb = sdk;
     const app = fb.initializeApp(config);
     auth = fb.initializeAuth(app, { persistence: [fb.indexedDBLocalPersistence, fb.browserLocalPersistence] });
+    auth.languageCode = 'de'; // e-mails such as the password reset
     db = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentSingleTabManager() }) });
     if (config.emulatorHost) {
       // Local Firebase emulator, for development only.
       fb.connectAuthEmulator(auth, `http://${config.emulatorHost}:9099`, { disableWarnings: true });
       fb.connectFirestoreEmulator(db, config.emulatorHost, 8080);
     }
+    fb.onAuthStateChanged(auth, (user) => {
+      uid = user?.uid ?? null;
+      authKnown = true;
+      // Signed out elsewhere (account deleted or disabled): stop listening.
+      if (!user && active) {
+        pause();
+        setStatus('signedOut');
+      }
+      notify();
+    });
+  }, (err) => {
+    setup = null;
+    throw err;
   });
   await setup;
-  if (uid) return;
   await auth.authStateReady();
-  // An anonymous account per device; membership in a household is what counts.
-  uid = (auth.currentUser ?? (await withTimeout(fb.signInAnonymously(auth))).user).uid;
+  authKnown = true;
+  uid = auth.currentUser?.uid ?? null;
 }
 
 const ref = (...path) => fb.doc(db, 'households', ...path);
@@ -218,8 +263,8 @@ let active = null; // code of the household being mirrored
 let listeners = [];
 let rejoined = false;
 
-// Membership got lost (e.g. the device's anonymous account was reset by iOS):
-// knowing the code is enough to join again.
+// Membership got lost (e.g. a device's anonymous account was reset by iOS
+// or left on another device): knowing the code is enough to join again.
 function onListenError(code) {
   return (err) => {
     if (err.code === 'permission-denied' && !rejoined) {
@@ -268,14 +313,58 @@ function attach(code) {
   ];
 }
 
-function detach() {
+// Stop listening but keep collecting local changes (see install) until the
+// next attach – used while signed out or switching accounts.
+function pause() {
   listeners.forEach((stop) => stop());
   listeners = [];
   active = null;
   ready = false;
+}
+
+function detach() {
+  pause();
   backlog.length = 0;
   setSyncHooks({});
   setStatus('off');
+}
+
+// Signing in on a device that already shares a household keeps it shared:
+// the account becomes a member; the device's old anonymous account leaves.
+async function ensureMember(code, before) {
+  const snap = await withTimeout(fb.getDoc(ref(code)));
+  if (!snap.exists()) return;
+  const members = snap.data().members ?? [];
+  if (!members.includes(uid)) await withTimeout(fb.setDoc(ref(code), { members: fb.arrayUnion(uid) }, { merge: true }));
+  if (before?.isAnonymous && before.uid !== uid && members.includes(before.uid)) {
+    fb.setDoc(ref(code), { members: fb.arrayRemove(before.uid) }, { merge: true }).catch(() => {});
+  }
+}
+
+async function switchAccount(task) {
+  await connect();
+  const before = auth.currentUser;
+  const code = state.meta.household?.id;
+  if (code) {
+    pause();
+    setStatus('connecting');
+  }
+  try {
+    await withTimeout(task());
+  } catch (err) {
+    if (code && uid) attach(code); // still signed in as before
+    else if (code) setStatus('signedOut');
+    throw readable(err);
+  }
+  uid = auth.currentUser.uid;
+  if (code) {
+    await ensureMember(code, before).catch(report);
+    attach(code);
+  } else {
+    mine = null;
+    await findHouseholds();
+  }
+  notify();
 }
 
 // ---------------------------------------------------------------------------
@@ -291,15 +380,85 @@ export async function initSync() {
   setStatus('connecting');
   try {
     await connect();
-    attach(household.id);
+    if (uid) attach(household.id);
+    else setStatus('signedOut');
   } catch (err) {
     report(err);
   }
 }
 
+// The signed-in account: { email, anonymous }, null when signed out,
+// undefined while not known yet (see loadAccount).
+export function account() {
+  if (!authKnown) return undefined;
+  const user = auth.currentUser;
+  return user ? { email: user.email, anonymous: user.isAnonymous } : null;
+}
+
+export const loadAccount = () => connect().catch(report);
+
+export const signIn = (email, password) => switchAccount(() => fb.signInWithEmailAndPassword(auth, email, password));
+
+// A device that shares a household with its anonymous account turns that
+// account into one with e-mail and password, so its membership stays.
+export const register = (email, password) =>
+  switchAccount(() => {
+    const user = auth.currentUser;
+    return user?.isAnonymous
+      ? fb.linkWithCredential(user, fb.EmailAuthProvider.credential(email, password))
+      : fb.createUserWithEmailAndPassword(auth, email, password);
+  });
+
+export async function resetPassword(email) {
+  await connect();
+  try {
+    await withTimeout(fb.sendPasswordResetEmail(auth, email));
+  } catch (err) {
+    throw readable(err);
+  }
+}
+
+// The household stays linked: after signing in again, syncing continues
+// with the changes made in the meantime.
+export async function signOut() {
+  await connect();
+  if (state.meta.household) pause();
+  mine = null;
+  await fb.signOut(auth);
+  uid = null;
+  setStatus(state.meta.household ? 'signedOut' : 'off');
+  notify();
+}
+
+// Households the signed-in account belongs to: [{ id, name }], null until
+// looked up.
+let mine = null;
+let finding = null;
+export const myHouseholds = () => mine;
+
+export function findHouseholds() {
+  finding ??= (async () => {
+    try {
+      await connect();
+      if (!uid) return (mine = []);
+      const snap = await withTimeout(fb.getDocs(fb.query(fb.collection(db, 'households'), fb.where('members', 'array-contains', uid))));
+      mine = snap.docs.map((d) => ({ id: d.id, name: d.data().name }));
+    } catch (err) {
+      console.warn('Haushalte nicht gefunden', err); // e.g. rules from before accounts: join by code
+      mine = [];
+    } finally {
+      finding = null;
+    }
+    notify();
+    return mine;
+  })();
+  return finding;
+}
+
 // This device's data becomes the household's data.
 export async function createHousehold(name) {
   await connect();
+  if (!uid) throw new Error('Bitte melde dich zuerst an.');
   const code = newCode();
   await withTimeout(fb.setDoc(ref(code), { name, members: [uid], createdAt: Date.now() }));
   setMeta({ household: { id: code, name, lastSync: 0 } });
@@ -311,6 +470,7 @@ export async function createHousehold(name) {
 // This device takes over the household's data.
 export async function joinHousehold(code) {
   await connect();
+  if (!uid) throw new Error('Bitte melde dich zuerst an.');
   const household = await withTimeout(fb.getDoc(ref(code)));
   if (!household.exists()) throw new Error('Diesen Haushalt gibt es nicht. Bitte prüfe den Code.');
   if (!household.data().members?.includes(uid)) {
@@ -326,11 +486,14 @@ export async function joinHousehold(code) {
   attach(code);
 }
 
-// Stop syncing on this device; its data stays here.
+// Stop syncing on this device; its data stays here. An account stays a
+// member (its other devices still use it); a device's anonymous account
+// leaves the household.
 export function leaveHousehold() {
   const household = state.meta.household;
   if (!household) return;
-  if (fb && uid) fb.setDoc(ref(household.id), { members: fb.arrayRemove(uid) }, { merge: true }).catch(() => {});
+  if (auth?.currentUser?.isAnonymous) fb.setDoc(ref(household.id), { members: fb.arrayRemove(uid) }, { merge: true }).catch(() => {});
   detach();
+  mine = null;
   setMeta({ household: null });
 }

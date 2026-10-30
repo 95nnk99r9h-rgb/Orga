@@ -12,8 +12,8 @@ import { dateLabel, unitsLabel, plural } from '../format.js';
 import { navigate, refresh } from '../router.js';
 import { canInstall, install } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
-import { leaveHousehold } from '../sync.js';
-import { syncLabel } from './household.js';
+import { leaveHousehold, signOut, syncConfigured } from '../sync.js';
+import { syncLabel, forgetForm } from './household.js';
 
 const row = ({ iconName, color, title, detail = '', href = null, action = null, cls = '' }) => {
   const inner = html`
@@ -127,12 +127,14 @@ export const moreView = {
       if (action === 'reset' && (await confirmDialog({
         title: 'Alle Daten löschen?',
         message: state.meta.household
-          ? 'Dieses Gerät verlässt den Haushalt und löscht alles, was hier gespeichert ist. Im Haushalt und auf den anderen Geräten bleibt alles erhalten.'
+          ? 'Dieses Gerät verlässt den Haushalt, meldet sich ab und löscht alles, was hier gespeichert ist. Im Haushalt und auf den anderen Geräten bleibt alles erhalten.'
           : 'Kisten, Einzelstücke, Fotos, Lagerorte und Kategorien werden von diesem Gerät entfernt. Erstelle vorher ein Backup.',
         confirm: 'Alles löschen',
         destructive: true,
       }))) {
         leaveHousehold();
+        if (syncConfigured()) await signOut().catch(() => {});
+        forgetForm();
         await resetAll();
         navigate('/willkommen', { replace: true });
       }

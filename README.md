@@ -50,10 +50,10 @@ Die ausführliche Anleitung mit Checkliste für den Einräum-Tag, Material-Liste
 - **Lagerorte** – Räume wie Keller, Dachboden und Garage anlegen, jeder mit eigenen Regalen und Stellplätzen; Regale hinzufügen und entfernen, Böden pro Regal einzeln einstellen, Regale und Stellplätze zwischen Räumen verschieben. Buchstaben und Nummern zählen über alle Räume weiter, damit jede Adresse eindeutig bleibt.
 - **Umlagern** – per Raster (Regal × Boden, kürzere Regale mit Lücken) plus Stellplätze, per Scan oder vom Platz aus („Hierher stellen“). Zusätzlich „Ohne festen Platz“ und „Entnommen“.
 - **Kategorien mit Farben** – z. B. Weihnachten = rot, Kleidung = blau. Die Farbe erscheint auf dem Etikett und in der App.
-- **Gemeinsam nutzen** – optionaler Online-Abgleich über Firebase: Ein Handy legt einen „Haushalt“ an, weitere treten per Code oder QR-Code bei. Änderungen erscheinen in Sekunden auf allen Geräten, ohne Netz im Keller wird alles gemerkt und später abgeglichen. Einrichtung: **[docs/ONLINE.md](docs/ONLINE.md)**.
+- **Gemeinsam nutzen** – optionaler Online-Abgleich über Firebase: Jede Person meldet sich mit E-Mail und Passwort an, ein Handy legt einen „Haushalt“ an, weitere treten per Code oder QR-Code bei. Änderungen erscheinen in Sekunden auf allen Geräten, ohne Netz im Keller wird alles gemerkt und später abgeglichen. Auf einem neuen Handy genügt die Anmeldung. Einrichtung: **[docs/ONLINE.md](docs/ONLINE.md)**.
 - **Backup** – Export/Import als Datei (inkl. Fotos), z. B. in iCloud Drive.
 - **Darstellung** – unter *Mehr → Darstellung*: Automatisch (wie das iPhone), Hell oder Dunkel.
-- **Offline-fähig**, Hell-/Dunkelmodus, keine Anmeldung. Ohne Online-Abgleich bleiben alle Daten auf dem Gerät.
+- **Offline-fähig**, Hell-/Dunkelmodus. Ohne Online-Abgleich keine Anmeldung nötig – alle Daten bleiben auf dem Gerät.
 
 ## Auf dem iPhone installieren
 
@@ -82,7 +82,7 @@ Dieselbe Adresse funktioniert in Edge, Chrome, Firefox und Safari. Ab etwa 1024 
 
 - **Als App installieren:** In Edge oder Chrome auf das Installations-Symbol rechts in der Adressleiste klicken (oder *Mehr → Als App installieren*). Fundort läuft dann in einem eigenen Fenster und erscheint im Startmenü.
 - **Tastenkürzel:** `Strg`+`K` (Mac: `⌘`+`K`) oder `/` springt in die Suche, `N` erfasst etwas Neues, `Esc` schließt Fenster.
-- **Gemeinsam nutzen:** Der Computer tritt wie ein Handy mit dem Haushalts-Code bei (*Mehr → Gemeinsam nutzen*).
+- **Gemeinsam nutzen:** Am Computer anmelden (*Mehr → Gemeinsam nutzen*) – der Haushalt des Kontos wird gefunden, sonst wie am Handy mit dem Code beitreten.
 - **Drucken** geht am Computer am bequemsten – Etiketten und Inhaltslisten in Originalgröße (100 %).
 
 ## Gut zu wissen
@@ -127,7 +127,7 @@ js/reorder.js         Nummern-Chips durch Halten und Ziehen umsortieren
 js/haptics.js         kurzes haptisches Feedback (Android: Vibration, iOS 18+: System-Haptik)
 js/sync.js            Online-Abgleich mit einem Haushalt in Firebase Firestore (lokal zuerst, offline-fest)
 js/firebase-config.js Zugangsdaten des Firebase-Projekts (leer = Abgleich aus)
-firestore.rules       Sicherheitsregeln: nur Mitglieder eines Haushalts lesen und schreiben
+firestore.rules       Sicherheitsregeln: nur Konten, die zu einem Haushalt gehören, lesen und schreiben
 js/theme.js           Darstellung: automatisch, hell oder dunkel
 js/views/*.js         Seiten: Lager (Start), Regal/Boden/Stellplatz, Kiste, Scannen, Etiketten, Mehr, System, Willkommen;
                       browse.js ist der Seitenrahmen mit Suche, Verlauf und Filtern
